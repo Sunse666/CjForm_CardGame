@@ -5,7 +5,7 @@
 #include "CGRTools.h"
 
 namespace gamerandom {
-	bool chooseRole(const std::string judge_str_player, std::unique_ptr<Role>& judge_Role);
+	bool chooseRole(const std::string judge_str_player, std::unique_ptr<Role>& judge_Role, int mode);
 
 	void setPlayer(std::unique_ptr<Role>& player);
 

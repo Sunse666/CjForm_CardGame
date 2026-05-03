@@ -50,7 +50,12 @@ namespace gamerandom {
 			AI->changeHP(damage);
 
 
-			if (AI->getHP() < 0 || player->getHP() < 0) {
+			if (AI->getHP() < 0) {
+				tools::out(std::string("玩家胜利\n游戏结束"));
+				break;
+			}
+			else if (player->getHP() < 0) {
+				tools::out(std::string("AI胜利\n游戏结束"));
 				break;
 			}
 			else if(tools::judge()) {

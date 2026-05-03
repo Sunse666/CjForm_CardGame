@@ -1,9 +1,9 @@
 #include "CardGameRandom.h"
 
 namespace gamerandom {
-	bool chooseRole(const std::string judge_str_player,std::unique_ptr<Role>& judge_Role) {
+	bool chooseRole(const std::string judge_str_player,std::unique_ptr<Role>& judge_Role,int mode) {
 		if (judge_str_player[0] == '1') {
-			judge_Role = std::make_unique<Double>(1);
+			judge_Role = std::make_unique<Double>(mode);
 			return 1;
 		}
 		else {
@@ -19,7 +19,7 @@ namespace gamerandom {
 			showRole();
 			std::string judge_str_player;
 			tools::input(judge_str_player);
-			if (chooseRole(judge_str_player, player)) {
+			if (chooseRole(judge_str_player, player,1)) {
 				break;
 			}
 		}
@@ -27,7 +27,7 @@ namespace gamerandom {
 
 	void setAI(std::unique_ptr<Role>& AI) {
 		while (1) {
-			if (chooseRole(std::to_string(tools::Random(1)), AI)) {
+			if (chooseRole(std::to_string(tools::Random(1)), AI,2)) {
 				break;
 			}
 		}

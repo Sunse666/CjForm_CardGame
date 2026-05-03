@@ -52,6 +52,10 @@ namespace gamerandom {
 		virtual bool passiveSkill()=0;//被动技能
 
 		virtual bool player_skillchoose();//玩家主动技能选择
+		virtual void playear_DMGchoose();//玩家防御选择
+
+		virtual void AI_ATKchoose();//AI攻击选择
+		virtual void AI_DMGchoose();//AI防御选择
 
 		RoleType basic;//存储数据
 

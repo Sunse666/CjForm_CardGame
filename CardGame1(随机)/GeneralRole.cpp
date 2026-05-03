@@ -1,10 +1,6 @@
 #include"GeneralRole.h"
 
 namespace gamerandom {
-	void Role::changeHP(int changeHP) {
-		basic.HP += changeHP;
-	}
-
 	int Role::getHP() {
 		return basic.HP;
 	}
@@ -42,6 +38,9 @@ namespace gamerandom {
 	void Role::playear_ATKchoose() {
 		while (1) {
 		Rec://标签，输入错误时跳转到这里
+			while (!chooseCard.empty()) {
+				chooseCard.erase(chooseCard.begin());
+			}
 			tools::out(std::string("可选择的数为") + std::to_string(basic.ATKnum));
 			for (int i = 0; i < basic.ATKnum; i++) {
 			Reic://标签，输入错误时跳转到这里	
@@ -69,6 +68,9 @@ namespace gamerandom {
 				break;
 			}
 		}
+	}
+
+	void Role::AI_ATKchoose() {//AI攻击选择
 	}
 
 	void Role::pushRandom() {
@@ -106,7 +108,7 @@ namespace gamerandom {
 			}
 		}
 		if (passiveSkill()) {
-			tools::out(std::string("被动技能发动，攻击翻倍\n最终伤害为") + std::to_string(ATK));
+			tools::out(std::string("被动技能发动，攻击翻倍\n最终伤害为") + std::to_string(ATK * 4));
 			return ATK * 4;
 		}
 		else {
@@ -126,5 +128,60 @@ namespace gamerandom {
 			tools::out(std::string("主动技能未发动，攻击倍率不变"));
 			return 0;
 		}
+	}
+
+	void Role::changeHP(int changeHP) {//修改血量
+		pushRandom();
+		showDCM();
+		if(mode == 1) {
+			playear_DMGchoose();
+		}
+		else if (mode == 2) {
+			AI_DMGchoose();
+		}
+		changeHP = std::max(0, changeHP - DMG);
+		basic.HP -= changeHP;
+		tools::out(std::string("本轮防御点数为") + std::to_string(DMG) + std::string("，实际受到的伤害为") + std::to_string(changeHP));
+		DMG = 0;
+	}
+
+	void Role::playear_DMGchoose() {
+		std::set<int> chooseCardDMG;
+		while (1) {
+		Rec://标签，输入错误时跳转到这里
+			tools::out(std::string("可选择的数为") + std::to_string(basic.DMGnum));
+			for (int i = 0; i < basic.DMGnum; i++) {
+			Reic://标签，输入错误时跳转到这里	
+				tools::out(std::string("输入第") + std::to_string(i + 1) + std::string("个选择"));
+				std::string in;
+				tools::input(in);
+				if (tools::to_int(in) < 0 || tools::to_int(in) > basic.dicenum)
+					goto Reic;
+				chooseCardDMG.insert(tools::to_int(in) - 1);
+			}
+			if (chooseCardDMG.size() < basic.DMGnum) {
+				tools::out(std::string("输入错误，已选择的数为") + std::to_string(chooseCardDMG.size()) + std::string("个，少输入了"));
+				goto Rec;
+			}
+			tools::out(std::string("选择的是"));
+			std::string choose = "";
+			for (auto i = chooseCardDMG.begin(); i != chooseCardDMG.end(); i++) {
+				choose += std::to_string(*i + 1) + " ";
+				DMG += DCM[*i];
+			}
+			tools::out(choose);
+			if (tools::judge()) {
+				tools::out(std::string("本轮选择总和点数为") + std::to_string(DMG));
+				break;
+			}
+		}
+	}
+
+	void Role::AI_DMGchoose() {
+		std::sort(DCM.begin(), DCM.end(), [](int a, int b) { return a > b; });
+		for (int i = 0; i < basic.DMGnum; i++) {
+			DMG += DCM[i];
+		}
+		tools::out(std::string("AI进行防御，防御点数为") + std::to_string(DMG));
 	}
 }
