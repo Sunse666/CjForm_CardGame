@@ -49,6 +49,10 @@ namespace gamerandom {
 	protected:
 		virtual void playear_ATKchoose();//玩家攻击选择
 
+		virtual bool passiveSkill()=0;//被动技能
+
+		virtual bool player_skillchoose();//玩家主动技能选择
+
 		RoleType basic;//存储数据
 
 		std::set<int>chooseCard;//存储选择的卡牌
