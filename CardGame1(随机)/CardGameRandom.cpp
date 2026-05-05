@@ -57,6 +57,8 @@ namespace gamerandom {
 			if (GameOver(player, AI)) {
 				break;
 			}
+
+			tools::System(std::string("pause"));
 		}
 
 		return (player->getHP() - AI->getHP())/5;//总的硬币变化为对应血量
