@@ -44,21 +44,21 @@ namespace gamerandom {
 		tools::System(std::string("pause"));//按键开始
 
 		while (1) {
-			tools::System("cls");
-			player->choose();
-			int damage = player->skill();
-			AI->changeHP(damage);
+			Player_AI(player, AI);
 
-
-			if (AI->getHP() < 0) {
-				tools::out(std::string("玩家胜利\n游戏结束"));
+			if (GameOver(player, AI)) {
 				break;
 			}
-			else if (player->getHP() < 0) {
-				tools::out(std::string("AI胜利\n游戏结束"));
+
+			tools::System(std::string("pause"));
+
+			AI_Player(player, AI);
+
+			if (GameOver(player, AI)) {
 				break;
 			}
-			else if(tools::judge()) {
+
+			if(tools::judge()) {
 				break;
 			}
 		}

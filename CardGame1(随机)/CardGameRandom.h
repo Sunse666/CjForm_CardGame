@@ -5,6 +5,12 @@
 #include "CGRTools.h"
 
 namespace gamerandom {
+	void Player_AI(std::unique_ptr<Role>& player,std::unique_ptr<Role>& AI);
+
+	void AI_Player(std::unique_ptr<Role>& player,std::unique_ptr<Role>& AI);
+
+	bool GameOver(std::unique_ptr<Role>& player, std::unique_ptr<Role>& AI);
+
 	bool chooseRole(const std::string judge_str_player, std::unique_ptr<Role>& judge_Role, int mode);
 
 	void setPlayer(std::unique_ptr<Role>& player);

@@ -31,7 +31,7 @@ namespace gamerandom {
 			playear_ATKchoose();
 		}
 		else if (mode == 2) {//mode==2时AI操作
-
+			AI_ATKchoose();
 		}
 	}
 
@@ -71,6 +71,11 @@ namespace gamerandom {
 	}
 
 	void Role::AI_ATKchoose() {//AI攻击选择
+		std::sort(DCM.begin(), DCM.end(), [](int a, int b) { return a > b; });
+		for (int i = 0; i < basic.ATKnum; i++) {
+			ATK += DCM[i];
+		}
+		tools::out(std::string("AI进行攻击，攻击点数为") + std::to_string(ATK));
 	}
 
 	void Role::pushRandom() {
@@ -96,15 +101,13 @@ namespace gamerandom {
 		if (nowActiveSkill >= basic.activeSkillMP) {
 			tools::out(std::string("主动技能已准备好，是否使用主动技能，使用后攻击翻倍"));
 			if (mode == 1) {//主动技能：攻击翻倍
-				if (player_skillchoose()) {
+				if (Player_SkillChoose()) {
 					ATK *= 2;
 					nowActiveSkill = 0;
 				}
 			}
 			else if (mode == 2) {//AI主动技能：有概率攻击翻倍
-			}
-			if (passiveSkill()) {
-				ATK *= 2;
+					ATK *= 2;
 			}
 		}
 		if (passiveSkill()) {
@@ -118,7 +121,7 @@ namespace gamerandom {
 	}
 
 
-	bool Role::player_skillchoose() {
+	bool Role::Player_SkillChoose() {
 		tools::out(std::string("输入Y/y使用"));
 		if (tools::judge()) {
 			tools::out(std::string("主动技能发动，攻击翻倍"));

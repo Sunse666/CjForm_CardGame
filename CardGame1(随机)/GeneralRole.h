@@ -47,11 +47,10 @@ namespace gamerandom {
 
 		virtual ~Role() = default;//虚析构函数
 	protected:
-		virtual void playear_ATKchoose();//玩家攻击选择
-
 		virtual bool passiveSkill()=0;//被动技能
 
-		virtual bool player_skillchoose();//玩家主动技能选择
+		virtual bool Player_SkillChoose();//玩家主动技能选择
+		virtual void playear_ATKchoose();//玩家攻击选择
 		virtual void playear_DMGchoose();//玩家防御选择
 
 		virtual void AI_ATKchoose();//AI攻击选择
