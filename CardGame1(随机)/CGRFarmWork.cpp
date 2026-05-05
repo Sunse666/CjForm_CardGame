@@ -1,18 +1,27 @@
 #include "CardGameRandom.h"
 
 namespace gamerandom {
+	void SkillMP(std::unique_ptr<Role>& ATK_Role, std::unique_ptr<Role>& DMG_Role,int ChangeMP) {
+		ATK_Role->changeMP(ChangeMP);
+		DMG_Role->changeMP(ChangeMP);
+	}
+
 	void Player_AI(std::unique_ptr<Role>& player, std::unique_ptr<Role>& AI) {
 		tools::System("cls");
+		tools::out(std::string("玩家回合"));
 		player->choose();
-		int damage = player->skill();
-		AI->changeHP(damage);
+		int ATK = player->skill();
+		AI->changeHP(ATK);
+		SkillMP(player, AI, ATK);
 	}
 
 	void AI_Player(std::unique_ptr<Role>& player, std::unique_ptr<Role>& AI) {
 		tools::System("cls");
+		tools::out(std::string("AI回合"));
 		AI->choose();
-		int damage = AI->skill();
-		player->changeHP(damage);
+		int ATK = AI->skill();
+		player->changeHP(ATK);
+		SkillMP(AI, player, ATK);
 	}
 
 	bool GameOver(std::unique_ptr<Role>& player, std::unique_ptr<Role>& AI) {

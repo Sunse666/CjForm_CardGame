@@ -45,6 +45,8 @@ namespace gamerandom {
 
 		virtual int skill();//技能的使用
 
+		virtual void changeMP(int damage);//修改蓝量
+
 		virtual ~Role() = default;//虚析构函数
 	protected:
 		virtual bool passiveSkill()=0;//被动技能

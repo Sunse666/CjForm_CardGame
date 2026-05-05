@@ -142,7 +142,7 @@ namespace gamerandom {
 		else if (mode == 2) {
 			AI_DMGchoose();
 		}
-		changeHP = std::max(0, changeHP - DMG);
+		changeHP = std::max(0, (int)((changeHP)*basic.damage - DMG));
 		basic.HP -= changeHP;
 		tools::out(std::string("本轮防御点数为") + std::to_string(DMG) + std::string("，实际受到的伤害为") + std::to_string(changeHP));
 		DMG = 0;
@@ -186,5 +186,9 @@ namespace gamerandom {
 			DMG += DCM[i];
 		}
 		tools::out(std::string("AI进行防御，防御点数为") + std::to_string(DMG));
+	}
+
+	void Role::changeMP(int MP) {
+		basic.MP += MP;
 	}
 }

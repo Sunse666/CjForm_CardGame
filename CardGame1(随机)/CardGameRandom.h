@@ -5,6 +5,8 @@
 #include "CGRTools.h"
 
 namespace gamerandom {
+	void SkillMP(std::unique_ptr<Role>& ATK_Role, std::unique_ptr<Role>& DMG_Role, int damage);
+
 	void Player_AI(std::unique_ptr<Role>& player,std::unique_ptr<Role>& AI);
 
 	void AI_Player(std::unique_ptr<Role>& player,std::unique_ptr<Role>& AI);
