@@ -1,12 +1,12 @@
 #include "CardGameRandom.h"
 
 namespace gamerandom {
-	void SkillMP(std::unique_ptr<Role>& ATK_Role, std::unique_ptr<Role>& DMG_Role,int ChangeMP) {
+	void SkillMP(Role*& ATK_Role, Role*& DMG_Role,int ChangeMP) {
 		ATK_Role->changeMP(ChangeMP);
 		DMG_Role->changeMP(ChangeMP);
 	}
 
-	void Player_AI(std::unique_ptr<Role>& player, std::unique_ptr<Role>& AI) {
+	void Player_AI(Role*& player, Role*& AI) {
 		tools::System("cls");
 		tools::out(std::string("玩家回合"));
 		player->choose();
@@ -15,7 +15,7 @@ namespace gamerandom {
 		SkillMP(player, AI, ATK);
 	}
 
-	void AI_Player(std::unique_ptr<Role>& player, std::unique_ptr<Role>& AI) {
+	void AI_Player(Role*& player, Role* & AI) {
 		tools::System("cls");
 		tools::out(std::string("AI回合"));
 		AI->choose();
@@ -24,7 +24,7 @@ namespace gamerandom {
 		SkillMP(AI, player, ATK);
 	}
 
-	bool GameOver(std::unique_ptr<Role>& player, std::unique_ptr<Role>& AI) {
+	bool GameOver(Role*& player, Role*& AI) {
 		if (AI->getHP() < 0) {
 			tools::out(std::string("玩家胜利\n游戏结束"));
 			return 1;
@@ -36,9 +36,9 @@ namespace gamerandom {
 		return 0;
 	}
 
-	bool chooseRole(const std::string judge_str_player,std::unique_ptr<Role>& judge_Role,int mode) {
+	bool chooseRole(const std::string judge_str_player, Role*& judge_Role,int mode) {
 		if (judge_str_player[0] == '1') {
-			judge_Role = std::make_unique<Double>(mode);
+			judge_Role = new Double(mode);
 			return 1;
 		}
 		else {
@@ -48,7 +48,7 @@ namespace gamerandom {
 		}
 	}
 
-	void setPlayer(std::unique_ptr<Role>& player) {
+	void setPlayer(Role*& player) {
 		while (1) {
 			tools::out(std::string("请输入使用的角色"));
 			showRole();
@@ -60,7 +60,7 @@ namespace gamerandom {
 		}
 	}
 
-	void setAI(std::unique_ptr<Role>& AI) {
+	void setAI(Role*& AI) {
 		while (1) {
 			if (chooseRole(std::to_string(tools::Random(1)), AI,2)) {
 				break;

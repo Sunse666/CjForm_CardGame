@@ -47,7 +47,7 @@ namespace gamerandom {
 
 		virtual void changeMP(int damage);//修改蓝量
 
-		virtual ~Role() = default;//虚析构函数
+		virtual ~Role() = default;//虚析构函数防止内存泄漏
 	protected:
 		virtual bool passiveSkill()=0;//被动技能
 

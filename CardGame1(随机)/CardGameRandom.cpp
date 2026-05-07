@@ -4,7 +4,7 @@ namespace gamerandom {
 	int GameRandom() {
 		tools::System("cls");//清屏
 
-		std::unique_ptr<Role> player = nullptr;//存储用户指针
+		Role* player = nullptr;//存储用户指针
 		while (1) {//选择
 			try {
 				setPlayer(player);//选择用户角色
@@ -25,7 +25,7 @@ namespace gamerandom {
 			tools::System("cls");//清屏
 		}
 
-		std::unique_ptr<Role> AI = nullptr;//存储AI指针
+		Role* AI = nullptr;//存储AI指针
 		tools::out(std::string("AI选择的是："));
 		try {
 			setAI(AI);//选择AI角色
@@ -60,6 +60,9 @@ namespace gamerandom {
 
 			tools::System(std::string("pause"));
 		}
+
+		delete player;
+		delete AI;
 
 		return (player->getHP() - AI->getHP())/5;//总的硬币变化为对应血量
 	}

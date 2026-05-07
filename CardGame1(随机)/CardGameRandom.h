@@ -5,19 +5,19 @@
 #include "CGRTools.h"
 
 namespace gamerandom {
-	void SkillMP(std::unique_ptr<Role>& ATK_Role, std::unique_ptr<Role>& DMG_Role, int damage);
+	void SkillMP(Role*& ATK_Role, Role*& DMG_Role, int damage);
 
-	void Player_AI(std::unique_ptr<Role>& player,std::unique_ptr<Role>& AI);
+	void Player_AI(Role*& player, Role*& AI);
 
-	void AI_Player(std::unique_ptr<Role>& player,std::unique_ptr<Role>& AI);
+	void AI_Player(Role*& player, Role*& AI);
 
-	bool GameOver(std::unique_ptr<Role>& player, std::unique_ptr<Role>& AI);
+	bool GameOver(Role*& player, Role*& AI);
 
-	bool chooseRole(const std::string judge_str_player, std::unique_ptr<Role>& judge_Role, int mode);
+	bool chooseRole(const std::string judge_str_player, Role*& judge_Role, int mode);
 
-	void setPlayer(std::unique_ptr<Role>& player);
+	void setPlayer(Role*& player);
 
-	void setAI(std::unique_ptr<Role>& AI);
+	void setAI(Role*& AI);
 
 	int GameRandom();
 }
