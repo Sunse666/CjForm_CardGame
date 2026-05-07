@@ -34,6 +34,7 @@ namespace gamerandom {
 		void changeHP(int changeHP);//修改血量
 
 		int getHP();//获得血量倍率
+		int getMP();//获得技能点
 
 		void showBasic();//查看基础信息
 

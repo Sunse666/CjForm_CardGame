@@ -7,6 +7,8 @@
 namespace gamerandom {
 	void SkillMP(Role*& ATK_Role, Role*& DMG_Role, int damage);
 
+	void showPlayer_AI(Role*& player, Role*& AI);
+
 	void Player_AI(Role*& player, Role*& AI);
 
 	void AI_Player(Role*& player, Role*& AI);

@@ -5,6 +5,10 @@ namespace gamerandom {
 		return basic.HP;
 	}
 
+	int Role::getMP() {
+		return nowActiveSkill;
+	}
+
 	float Role::getAttack() {
 		return basic.attack;
 	}
@@ -25,6 +29,7 @@ namespace gamerandom {
 	void Role::choose() {
 		std::string get;
 		std::vector<int>attack;
+		ATK = 0;
 		pushRandom();
 		showDCM();
 		if (mode == 1) {//mode==1时人来操作
@@ -99,15 +104,16 @@ namespace gamerandom {
 	int Role::skill() {
 		ATK *= basic.attack;
 		if (nowActiveSkill >= basic.activeSkillMP) {
-			tools::out(std::string("主动技能已准备好，是否使用主动技能，使用后攻击翻倍"));
 			if (mode == 1) {//主动技能：攻击翻倍
+				tools::out(std::string("主动技能已准备好，是否使用主动技能，使用后攻击翻倍"));
 				if (Player_SkillChoose()) {
 					ATK *= 2;
 					nowActiveSkill = 0;
 				}
 			}
 			else if (mode == 2) {//AI主动技能：有概率攻击翻倍
-					ATK *= 2;
+				tools::out(std::string("AI选择发动技能"));
+				ATK *= 2;
 			}
 		}
 		if (passiveSkill()) {
@@ -174,6 +180,7 @@ namespace gamerandom {
 			}
 			tools::out(choose);
 			if (tools::judge()) {
+
 				tools::out(std::string("本轮选择总和点数为") + std::to_string(DMG));
 				break;
 			}
@@ -189,6 +196,6 @@ namespace gamerandom {
 	}
 
 	void Role::changeMP(int MP) {
-		basic.MP += MP;
+		nowActiveSkill += MP;
 	}
 }

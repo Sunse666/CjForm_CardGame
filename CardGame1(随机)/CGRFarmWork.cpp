@@ -2,26 +2,39 @@
 
 namespace gamerandom {
 	void SkillMP(Role*& ATK_Role, Role*& DMG_Role,int ChangeMP) {
-		ATK_Role->changeMP(ChangeMP);
+		ATK_Role->changeMP(ChangeMP*2);
 		DMG_Role->changeMP(ChangeMP);
+	}
+
+	void showPlayer_AI(Role*& player, Role*& AI) {
+		tools::out(std::string("当前玩家HP:") + std::to_string(player->getHP()));
+		tools::out(std::string("当前AIHP:") + std::to_string(AI->getHP()));
 	}
 
 	void Player_AI(Role*& player, Role*& AI) {
 		tools::System("cls");
 		tools::out(std::string("玩家回合"));
+		showPlayer_AI(player, AI);
 		player->choose();
 		int ATK = player->skill();
 		AI->changeHP(ATK);
 		SkillMP(player, AI, ATK);
+		tools::out(std::string("玩家回合结束"));
+		tools::out(std::string("当前MP:") + std::to_string(player->getMP()));
+		showPlayer_AI(player, AI);
 	}
 
 	void AI_Player(Role*& player, Role* & AI) {
 		tools::System("cls");
 		tools::out(std::string("AI回合"));
+		showPlayer_AI(player, AI);
 		AI->choose();
 		int ATK = AI->skill();
 		player->changeHP(ATK);
 		SkillMP(AI, player, ATK);
+		tools::out(std::string("AI回合结束"));
+		tools::out(std::string("当前MP:") + std::to_string(player->getMP()));
+		showPlayer_AI(AI,player);
 	}
 
 	bool GameOver(Role*& player, Role*& AI) {
