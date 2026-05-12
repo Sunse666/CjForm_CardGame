@@ -158,6 +158,9 @@ namespace gamerandom {
 		std::set<int> chooseCardDMG;
 		while (1) {
 		Rec://标签，输入错误时跳转到这里
+			while (!chooseCardDMG.empty()) {
+				chooseCardDMG.erase(chooseCardDMG.begin());
+			}
 			tools::out(std::string("可选择的数为") + std::to_string(basic.DMGnum));
 			for (int i = 0; i < basic.DMGnum; i++) {
 			Reic://标签，输入错误时跳转到这里	

@@ -34,7 +34,7 @@ namespace gamerandom {
 		SkillMP(AI, player, ATK);
 		tools::out(std::string("AI回合结束"));
 		tools::out(std::string("当前MP:") + std::to_string(player->getMP()));
-		showPlayer_AI(AI,player);
+		showPlayer_AI(player,AI);
 	}
 
 	bool GameOver(Role*& player, Role*& AI) {
