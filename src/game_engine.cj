@@ -39,13 +39,14 @@ public struct CharData {
     public let passiveSkillThreshold: Int32
     public let attackMul: Float32
     public let damageMul: Float32
+    public let defense: Float32
     public let dicenum: Int32
     public let ATKnum: Int32
     public let DMGnum: Int32
 
     public init(id: Int32, name: String, desc: String, maxHP: Int32,
                 activeSkillCost: Int32, passiveSkillThreshold: Int32,
-                attackMul: Float32, damageMul: Float32,
+                attackMul: Float32, damageMul: Float32, defense: Float32,
                 dicenum: Int32, ATKnum: Int32, DMGnum: Int32) {
         this.id = id
         this.name = name
@@ -55,6 +56,7 @@ public struct CharData {
         this.passiveSkillThreshold = passiveSkillThreshold
         this.attackMul = attackMul
         this.damageMul = damageMul
+        this.defense = defense
         this.dicenum = dicenum
         this.ATKnum = ATKnum
         this.DMGnum = DMGnum
@@ -65,15 +67,15 @@ public struct CharData {
 public func getAllClasses(): ArrayList<CharData> {
     let list = ArrayList<CharData>()
     list.add(CharData(1, "剑士", "均衡型 — 攻守兼备",
-        50, 100, 4, 0.60, 1.00, 5, 4, 3))
+        80, 100, 4, 0.60, 1.00, 0.15, 5, 4, 3))
     list.add(CharData(2, "盾卫", "防御型 — 高血量高护甲",
-        80, 130, 3, 0.40, 1.30, 4, 3, 3))
+        130, 130, 3, 0.40, 1.30, 0.30, 4, 3, 3))
     list.add(CharData(3, "暗影", "刺客型 — 低血高攻高暴击",
-        35, 75, 6, 0.85, 0.70, 5, 4, 2))
+        55, 75, 6, 0.85, 0.70, 0.05, 5, 4, 2))
     list.add(CharData(4, "术士", "技能型 — 技能频繁触发",
-        40, 60, 3, 0.55, 0.80, 6, 5, 2))
+        65, 60, 3, 0.55, 0.80, 0.10, 6, 5, 2))
     list.add(CharData(5, "狂战", "狂战型 — 极限输出",
-        45, 85, 7, 0.75, 0.85, 5, 5, 2))
+        70, 85, 7, 0.75, 0.85, 0.05, 5, 5, 2))
     list
 }
 
@@ -369,9 +371,9 @@ public class CardGameEngine {
         let defense = ai.getSelectedSum()
         log("AI防御点数: ${defense} (选了${ai.data.DMGnum}个骰子)")
 
-        let actualDamage = max2(0, Int32(Float32(atk) * ai.data.damageMul) - defense)
+        let actualDamage = Int32(Float32(max2(0, Int32(Float32(atk) * ai.data.damageMul) - defense)) * (Float32(1) - ai.data.defense))
         ai.hp = max2(0, ai.hp - actualDamage)
-        log("AI受到 ${actualDamage} 点伤害, 剩余HP: ${ai.hp}/${ai.data.maxHP}")
+        log("AI受到 ${actualDamage} 点伤害 (防御值${ai.data.defense}), 剩余HP: ${ai.hp}/${ai.data.maxHP}")
 
         player.addSkillPoints(atk * 2)
         ai.addSkillPoints(atk)
@@ -421,9 +423,9 @@ public class CardGameEngine {
         let defense = player.getSelectedSum()
         log("玩家防御点数: ${defense}")
 
-        let actualDamage = max2(0, Int32(Float32(lastAIDamage) * player.data.damageMul) - defense)
+        let actualDamage = Int32(Float32(max2(0, Int32(Float32(lastAIDamage) * player.data.damageMul) - defense)) * (Float32(1) - player.data.defense))
         player.hp = max2(0, player.hp - actualDamage)
-        log("玩家受到 ${actualDamage} 点伤害, 剩余HP: ${player.hp}/${player.data.maxHP}")
+        log("玩家受到 ${actualDamage} 点伤害 (防御值${player.data.defense}), 剩余HP: ${player.hp}/${player.data.maxHP}")
 
         player.addSkillPoints(lastAIDamage)
         ai.addSkillPoints(lastAIDamage * 2)

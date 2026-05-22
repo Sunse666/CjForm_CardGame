@@ -83,7 +83,7 @@ public class CardGameUI {
             let row = idx / Int32(cols)
             let x = row1X + Float32(col) * (btnW + gapX)
             let y = Float32(150) + Float32(row) * (btnH + gapY)
-            let label = "${cd.name}  HP:${cd.maxHP}  攻:x${cd.attackMul}  防:x${cd.damageMul}"
+            let label = "${cd.name}  HP:${cd.maxHP}  攻:x${cd.attackMul}  防御:${cd.defense}"
             let btn = Button(label,
                 Position.abs(x, y), btnW, btnH,
                 "Microsoft YaHei", Float32(13), SizeScale.fixed(), Anchor.Center,
@@ -256,7 +256,7 @@ public class CardGameUI {
                 let x = row1X + Float32(col) * (btnW + gapX)
                 let y = Float32(150) + Float32(row) * (btnH + gapY)
                 let btn = classBtns[Int64(idx)]
-                btn.setText("${cd.name}  HP:${cd.maxHP}  攻:x${cd.attackMul}  防:x${cd.damageMul}")
+                btn.setText("${cd.name}  HP:${cd.maxHP}  攻:x${cd.attackMul}  防御:${cd.defense}")
                 btn.setPosition(Position.abs(x, y))
                 btn.setStyle(ButtonStyle.outlined())
             }

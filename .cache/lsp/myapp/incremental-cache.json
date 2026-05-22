@@ -1,0 +1,14 @@
+{
+  "packageInformation": {
+    "myapp": {
+      "rootPackageName": "myapp",
+      "fileNameHash": "-7342731397379245079",
+      "timeStamp": 1779379233,
+      "isBuilt": true,
+      "exeName": "main",
+      "hasSubPkgs": false
+    }
+  },
+  "jsonHash": "2762237185340668289",
+  "rootPackageName": "myapp"
+}
