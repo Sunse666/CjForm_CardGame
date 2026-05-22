@@ -35,6 +35,7 @@ public class CardGameUI {
     private var selectionInfoLabel: Label
     private var actionBtn: Button
     private var messageLabel: Label
+    private var messageScroll: ScrollArea
     private var phaseLabel: Label
     private var resultLabel: Label
 
@@ -220,7 +221,15 @@ public class CardGameUI {
         messageLabel = Label("",
             Position.abs(MG, Y_MSG), c.textSecondary,
             "Consolas", Float32(11), SizeScale.fixed(), Anchor.TopLeft)
-        window.addWidget(messageLabel)
+
+        let scrollStyle = ScrollAreaStyle(
+            Color.rgb(40, 40, 40), Color.rgb(100, 100, 100), Color.rgb(150, 150, 150),
+            Float32(8), Float32(20))
+        messageScroll = ScrollArea(scrollStyle)
+        messageScroll.setContent(messageLabel)
+        messageScroll.setWheelScrollSpeed(Float32(24))
+        messageScroll.setLayoutFrame(LayoutFrame(MG, Y_MSG, WIN_W - MG * Float32(2), Float32(152)))
+        window.addWidget(messageScroll)
 
         //BATTLE: PLAYER SECTION
         sep3 = Separator(true, SeparatorStyle.fromTheme())
@@ -342,7 +351,7 @@ public class CardGameUI {
         actionBtn.setText("掷骰子")
 
         sep2.setLayoutFrame(LayoutFrame(MG, Y_SEP2, WIN_W - MG * Float32(2), Float32(2)))
-        messageLabel.setPosition(Position.abs(MG, Y_MSG))
+        messageScroll.setLayoutFrame(LayoutFrame(MG, Y_MSG, WIN_W - MG * Float32(2), Float32(152)))
 
         sep3.setLayoutFrame(LayoutFrame(MG, Y_SEP3, WIN_W - MG * Float32(2), Float32(2)))
 
@@ -375,7 +384,7 @@ public class CardGameUI {
         actionBtn.setPosition(Position.abs(OFF, OFF))
         actionBtn.setText("")
         sep2.setLayoutFrame(LayoutFrame(OFF, OFF, Float32(1), Float32(1)))
-        messageLabel.setPosition(Position.abs(OFF, OFF))
+        messageScroll.setLayoutFrame(LayoutFrame(OFF, OFF, Float32(1), Float32(1)))
         sep3.setLayoutFrame(LayoutFrame(OFF, OFF, Float32(1), Float32(1)))
 
         playerNameLabel.setPosition(Position.abs(OFF, OFF))
@@ -617,6 +626,7 @@ public class CardGameUI {
 
     private func refreshMessageLog(): Unit {
         messageLabel.setText(engine.getRecentMessages())
+        messageScroll.scrollBy(Float32(0), Float32(9999))
     }
 
     public func run(): Int32 {

@@ -409,12 +409,8 @@ public class CardGameEngine {
 
     public func getRecentMessages(): String {
         var result: String = ""
-        let total: Int32 = Int32(messages.size)
-        let start: Int32 = if (total > 8) { total - 8 } else { 0 }
-        var pos: Int32 = 0
         for (m in messages) {
-            if (pos >= start) { result = result + m + "\n" }
-            pos = pos + 1
+            result = result + m + "\n"
         }
         result
     }
