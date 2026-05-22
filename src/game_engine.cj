@@ -81,6 +81,14 @@ public func getAllClasses(): ArrayList<CharData> {
         55, 55, 4, 0.10, 0.90, 0.05, 0.20, 6, 5, 2))
     list.add(CharData(8, "死灵", "法坦型 — 法攻为主偏防御",
         60, 65, 5, 0.20, 0.70, 0.10, 0.15, 5, 4, 3))
+    list.add(CharData(9, "魔剑士", "法战型 — 物法双修均衡",
+        75, 100, 5, 0.45, 0.50, 0.15, 0.15, 5, 4, 3))
+    list.add(CharData(10, "武僧", "高速暴击型 — 高暴连击回复",
+        60, 65, 7, 0.70, 0.10, 0.10, 0.10, 6, 5, 2))
+    list.add(CharData(11, "咒术师", "诅咒控制型 — 削弱敌方",
+        50, 60, 5, 0.10, 0.65, 0.05, 0.20, 5, 4, 3))
+    list.add(CharData(12, "龙骑士", "高血穿透型 — 物理破甲",
+        110, 120, 5, 0.65, 0.10, 0.20, 0.10, 4, 4, 2))
     list
 }
 
@@ -351,6 +359,9 @@ public class CardGameEngine {
     public var lastAIMagAtk: Int32
     public var playerSkillToggled: Bool
     public var aiDebuff: Float32
+    public var aiSkillPhysPen: Float32
+    public var aiSkillMagPen: Float32
+    public var aiSkillIgnoreDice: Bool
     public var playerVuln: Float32
     public var playerCounter: Float32
 
@@ -364,6 +375,9 @@ public class CardGameEngine {
         lastAIMagAtk = 0
         playerSkillToggled = false
         aiDebuff = Float32(1)
+        aiSkillPhysPen = Float32(0)
+        aiSkillMagPen = Float32(0)
+        aiSkillIgnoreDice = false
         playerVuln = Float32(1)
         playerCounter = Float32(0)
     }
@@ -472,6 +486,23 @@ public class CardGameEngine {
                     skillLifesteal = Float32(0.4)
                     aiDebuff = Float32(0.75)
                     log("💀 灵魂收割! 攻击+20%, 吸血40%, 削弱敌方下回合攻击")
+                case 9 => // 魔剑士 - 魔剑共鸣
+                    physAtk = Int32(Float32(physAtk) * Float32(1.45))
+                    magAtk = Int32(Float32(magAtk) * Float32(1.45))
+                    log("⚔ 魔剑共鸣! 物攻法攻 +45%")
+                case 10 => // 武僧 - 连击
+                    physAtk = Int32(Float32(physAtk) * Float32(1.5))
+                    skillHealPct = Float32(0.15)
+                    log("👊 连击! 攻击+50%, 回复15%HP")
+                case 11 => // 咒术师 - 恶咒
+                    magAtk = Int32(Float32(magAtk) * Float32(1.4))
+                    aiDebuff = Float32(0.75)
+                    skillMagPen = Float32(0.15)
+                    log("👁 恶咒! 法攻+40%, 削弱敌方攻-25%/法防-15%")
+                case 12 => // 龙骑士 - 龙击
+                    physAtk = Int32(Float32(physAtk) * Float32(1.8))
+                    skillPhysPen = Float32(0.4)
+                    log("🐉 龙击! 物攻+80%, 穿透40%物防")
                 case _ => ()
             }
             playerSkillToggled = false
@@ -553,9 +584,9 @@ public class CardGameEngine {
         log("AI物攻: ${physAtk} (骰${physSum}x${ai.data.physicalAttackMul}), 法攻: ${magAtk} (骰${magSum}x${ai.data.magicalAttackMul})")
 
         // AI auto-uses skill
-        var aiSkillPhysPen: Float32 = Float32(0)
-        var aiSkillMagPen: Float32 = Float32(0)
-        var aiSkillIgnoreDice: Bool = false
+        aiSkillPhysPen = Float32(0)
+        aiSkillMagPen = Float32(0)
+        aiSkillIgnoreDice = false
 
         if (ai.canUseSkill()) {
             ai.useSkill()
@@ -593,6 +624,23 @@ public class CardGameEngine {
                     physAtk = Int32(Float32(physAtk) * Float32(1.2))
                     magAtk = Int32(Float32(magAtk) * Float32(1.2))
                     log("AI 💀 灵魂收割! 攻击+20%, 吸血40%")
+                case 9 =>
+                    physAtk = Int32(Float32(physAtk) * Float32(1.45))
+                    magAtk = Int32(Float32(magAtk) * Float32(1.45))
+                    log("AI ⚔ 魔剑共鸣! 物攻法攻 +45%")
+                case 10 =>
+                    physAtk = Int32(Float32(physAtk) * Float32(1.5))
+                    let heal10 = Int32(Float32(ai.data.maxHP) * Float32(0.15))
+                    ai.hp = min2(ai.data.maxHP, ai.hp + heal10)
+                    log("AI 👊 连击! 攻击+50%, 回复 ${heal10} HP")
+                case 11 =>
+                    magAtk = Int32(Float32(magAtk) * Float32(1.4))
+                    aiSkillMagPen = Float32(0.15)
+                    log("AI 👁 恶咒! 法攻+40%, 穿透15%法防")
+                case 12 =>
+                    physAtk = Int32(Float32(physAtk) * Float32(1.8))
+                    aiSkillPhysPen = Float32(0.4)
+                    log("AI 🐉 龙击! 物攻+80%, 穿透40%物防")
                 case _ => ()
             }
         }
@@ -635,8 +683,21 @@ public class CardGameEngine {
     }
 
     public func playerDefend(): Int32 {
-        let physDef = player.getPhysSum()
-        let magDef = player.getMagSum()
+        var physDef = player.getPhysSum()
+        var magDef = player.getMagSum()
+
+        // Apply AI skill penetration / ignore dice
+        if (aiSkillIgnoreDice) {
+            physDef = 0
+            magDef = 0
+            log("AI元素过载: 无视玩家防御骰!")
+            aiSkillIgnoreDice = false
+        } else {
+            physDef = Int32(Float32(physDef) * (Float32(1) - aiSkillPhysPen))
+            magDef = Int32(Float32(magDef) * (Float32(1) - aiSkillMagPen))
+            aiSkillPhysPen = Float32(0)
+            aiSkillMagPen = Float32(0)
+        }
         log("玩家物防骰: ${physDef}(${player.getPhysCount()}个), 法防骰: ${magDef}(${player.getMagCount()}个)")
 
         var physDmg = Int32(Float32(max2(0, lastAIPhysAtk - physDef)) * (Float32(1) - player.data.physicalDefense))

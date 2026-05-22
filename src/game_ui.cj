@@ -502,6 +502,10 @@ public class CardGameUI {
             case 6 => "圣光审判"
             case 7 => "元素过载"
             case 8 => "灵魂收割"
+            case 9 => "魔剑共鸣"
+            case 10 => "连击"
+            case 11 => "恶咒"
+            case 12 => "龙击"
             case _ => ""
         }
     }
