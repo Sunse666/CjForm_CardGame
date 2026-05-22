@@ -45,7 +45,7 @@ public class CardGameUI {
     private var magDiceStyle: ButtonStyle
 
     // Layout — positions
-    private let MG: Float32 = Float32(50)
+    private let MG: Float32 = Float32(65)
     private let WIN_W: Float32 = Float32(800)
     private let WIN_H: Float32 = Float32(660)
     private let OFF: Float32 = Float32(-5000)
@@ -108,7 +108,8 @@ public class CardGameUI {
         let btnH: Float32 = Float32(64)
         let gapX: Float32 = Float32(18)
         let gapY: Float32 = Float32(10)
-        let row1X = WIN_W / Float32(2) - (btnW + gapX / Float32(2))
+        let totalW = Float32(2) * btnW + gapX
+        let row1X = (WIN_W - totalW) / Float32(2) + btnW / Float32(2)
 
         var idx: Int32 = 0
         for (cd in classes) {
@@ -264,7 +265,8 @@ public class CardGameUI {
         let btnH: Float32 = Float32(64)
         let gapX: Float32 = Float32(18)
         let gapY: Float32 = Float32(10)
-        let row1X = WIN_W / Float32(2) - (btnW + gapX / Float32(2))
+        let totalW = Float32(2) * btnW + gapX
+        let row1X = (WIN_W - totalW) / Float32(2) + btnW / Float32(2)
 
         var idx: Int32 = 0
         for (cd in classes) {

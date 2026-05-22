@@ -1,4 +1,6 @@
-.vscdoe/
+.cache/
+.claude/
+.vscode/
 CardGame1(随机)/
 target/
 .gitattributes
