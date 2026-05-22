@@ -1,8 +1,3 @@
-CardGame1(随机)/
-.gitattributes
-CardGame1(随机).sln
-CardGameRandom.xlsx
-cjform.ini
 target/
 docs/
 .cache/
