@@ -396,7 +396,7 @@ public class CardGameUI {
     }
 
     private func onSkillToggle(): Unit {
-        engine.toggleSkill()
+        engine.addSkillStack()
         refreshSkillButton()
     }
 
@@ -513,12 +513,15 @@ public class CardGameUI {
     private func refreshSkillButton(): Unit {
         let plFull = engine.player.skillPoints >= engine.player.data.activeSkillCost
         if (plFull) {
-            playerSkillBtn.setText(getSkillName(engine.player.data.id))
-            playerSkillBtn.setStyle(if (engine.playerSkillToggled) { ButtonStyle.fromTheme() } else { ButtonStyle.outlined() })
+            let name = getSkillName(engine.player.data.id)
+            let stacks = engine.playerSkillStacks
+            playerSkillBtn.setText(if (stacks > 0) { "${name} x${stacks}" } else { name })
+            playerSkillBtn.setStyle(if (stacks > 0) { ButtonStyle.fromTheme() } else { ButtonStyle.outlined() })
         } else {
-            engine.playerSkillToggled = false
-            playerSkillBtn.setText("")
-            playerSkillBtn.setStyle(ButtonStyle.outlined())
+            if (engine.playerSkillStacks == 0) {
+                playerSkillBtn.setText("")
+                playerSkillBtn.setStyle(ButtonStyle.outlined())
+            }
         }
     }
 

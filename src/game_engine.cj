@@ -357,7 +357,7 @@ public class CardGameEngine {
     public var messages: ArrayList<String>
     public var lastAIPhysAtk: Int32
     public var lastAIMagAtk: Int32
-    public var playerSkillToggled: Bool
+    public var playerSkillStacks: Int32
     public var aiDebuff: Float32
     public var aiSkillPhysPen: Float32
     public var aiSkillMagPen: Float32
@@ -373,7 +373,7 @@ public class CardGameEngine {
         messages = ArrayList<String>()
         lastAIPhysAtk = 0
         lastAIMagAtk = 0
-        playerSkillToggled = false
+        playerSkillStacks = 0
         aiDebuff = Float32(1)
         aiSkillPhysPen = Float32(0)
         aiSkillMagPen = Float32(0)
@@ -425,8 +425,11 @@ public class CardGameEngine {
         phase = GamePhase.PLAYER_ATTACK
     }
 
-    public func toggleSkill(): Unit {
-        playerSkillToggled = !playerSkillToggled
+    public func addSkillStack(): Unit {
+        if (player.canUseSkill()) {
+            player.skillPoints = player.skillPoints - player.data.activeSkillCost
+            playerSkillStacks = playerSkillStacks + 1
+        }
     }
 
     public func canActivateSkill(): Bool {
@@ -446,66 +449,80 @@ public class CardGameEngine {
         var skillLifesteal: Float32 = Float32(0)
         var skillHealPct: Float32 = Float32(0)
 
-        if (playerSkillToggled && player.canUseSkill()) {
-            player.useSkill()
+        if (playerSkillStacks > 0) {
+            let stacks = playerSkillStacks
             let id = player.data.id
             match (id) {
-                case 1 => // 剑士 - 剑气斩
-                    physAtk = Int32(Float32(physAtk) * Float32(1.5))
-                    magAtk = Int32(Float32(magAtk) * Float32(1.5))
-                    log("⚔ 剑气斩! 物攻法攻 +50%")
-                case 2 => // 盾卫 - 坚盾
+                case 1 => // 剑士 - 剑气斩: +50%/stack
+                    let mult = Float32(1) + Float32(0.5) * Float32(stacks)
+                    physAtk = Int32(Float32(physAtk) * mult)
+                    magAtk = Int32(Float32(magAtk) * mult)
+                    log("⚔ 剑气斩 x${stacks}! 物攻法攻 +${50 * stacks}%")
+                case 2 => // 盾卫 - 坚盾 (fixed)
                     playerVuln = Float32(0.6)
                     playerCounter = Float32(0.2)
                     log("🛡 坚盾! 受到伤害-40%, 反弹20%伤害")
-                case 3 => // 暗影 - 暗杀
-                    physAtk = Int32(Float32(physAtk) * Float32(1.3))
-                    magAtk = Int32(Float32(magAtk) * Float32(1.3))
-                    log("🗡 暗杀! 攻击+30%, 暴击率大幅提升")
-                case 4 => // 术士 - 奥术爆发
-                    magAtk = Int32(Float32(magAtk) * Float32(1.6))
-                    skillMagPen = Float32(0.3)
-                    log("🔮 奥术爆发! 法攻+60%, 穿透30%法防")
-                case 5 => // 狂战 - 狂暴
-                    physAtk = Int32(Float32(physAtk) * Float32(1.7))
-                    magAtk = Int32(Float32(magAtk) * Float32(1.7))
+                case 3 => // 暗影 - 暗杀: +30%/stack
+                    let mult = Float32(1) + Float32(0.3) * Float32(stacks)
+                    physAtk = Int32(Float32(physAtk) * mult)
+                    magAtk = Int32(Float32(magAtk) * mult)
+                    log("🗡 暗杀 x${stacks}! 攻击+${30 * stacks}%")
+                case 4 => // 术士 - 奥术爆发: +60%/stack, +30%pen/stack
+                    let mult = Float32(1) + Float32(0.6) * Float32(stacks)
+                    magAtk = Int32(Float32(magAtk) * mult)
+                    skillMagPen = Float32(0.3) * Float32(stacks)
+                    if (skillMagPen > Float32(1)) { skillMagPen = Float32(1) }
+                    log("🔮 奥术爆发 x${stacks}! 法攻+${60 * stacks}%")
+                case 5 => // 狂战 - 狂暴: +70%/stack
+                    let mult = Float32(1) + Float32(0.7) * Float32(stacks)
+                    physAtk = Int32(Float32(physAtk) * mult)
+                    magAtk = Int32(Float32(magAtk) * mult)
                     playerVuln = Float32(1.3)
-                    log("💢 狂暴! 攻击+70%, 但受到伤害+30%")
-                case 6 => // 圣骑 - 圣光审判
-                    physAtk = Int32(Float32(physAtk) * Float32(1.25))
-                    magAtk = Int32(Float32(magAtk) * Float32(1.25))
-                    skillHealPct = Float32(0.2)
-                    log("✨ 圣光审判! 攻击+25%, 回复20%HP")
-                case 7 => // 元素使 - 元素过载
-                    magAtk = Int32(Float32(magAtk) * Float32(2.0))
+                    log("💢 狂暴 x${stacks}! 攻击+${70 * stacks}%")
+                case 6 => // 圣骑 - 圣光审判: +25%/stack, +20%heal/stack
+                    let mult = Float32(1) + Float32(0.25) * Float32(stacks)
+                    physAtk = Int32(Float32(physAtk) * mult)
+                    magAtk = Int32(Float32(magAtk) * mult)
+                    skillHealPct = Float32(0.2) * Float32(stacks)
+                    log("✨ 圣光审判 x${stacks}! 攻击+${25 * stacks}%")
+                case 7 => // 元素使 - 元素过载: +100%/stack
+                    let mult = Float32(1) + Float32(1.0) * Float32(stacks)
+                    magAtk = Int32(Float32(magAtk) * mult)
                     skillIgnoreDice = true
-                    log("⚡ 元素过载! 法攻翻倍, 无视防御骰")
-                case 8 => // 死灵 - 灵魂收割
-                    physAtk = Int32(Float32(physAtk) * Float32(1.2))
-                    magAtk = Int32(Float32(magAtk) * Float32(1.2))
+                    log("⚡ 元素过载 x${stacks}! 法攻+${100 * stacks}%")
+                case 8 => // 死灵 - 灵魂收割: +20%/stack
+                    let mult = Float32(1) + Float32(0.2) * Float32(stacks)
+                    physAtk = Int32(Float32(physAtk) * mult)
+                    magAtk = Int32(Float32(magAtk) * mult)
                     skillLifesteal = Float32(0.4)
                     aiDebuff = Float32(0.75)
-                    log("💀 灵魂收割! 攻击+20%, 吸血40%, 削弱敌方下回合攻击")
-                case 9 => // 魔剑士 - 魔剑共鸣
-                    physAtk = Int32(Float32(physAtk) * Float32(1.45))
-                    magAtk = Int32(Float32(magAtk) * Float32(1.45))
-                    log("⚔ 魔剑共鸣! 物攻法攻 +45%")
-                case 10 => // 武僧 - 连击
-                    physAtk = Int32(Float32(physAtk) * Float32(1.5))
-                    skillHealPct = Float32(0.15)
-                    log("👊 连击! 攻击+50%, 回复15%HP")
-                case 11 => // 咒术师 - 恶咒
-                    magAtk = Int32(Float32(magAtk) * Float32(1.4))
+                    log("💀 灵魂收割 x${stacks}! 攻击+${20 * stacks}%")
+                case 9 => // 魔剑士 - 魔剑共鸣: +45%/stack
+                    let mult = Float32(1) + Float32(0.45) * Float32(stacks)
+                    physAtk = Int32(Float32(physAtk) * mult)
+                    magAtk = Int32(Float32(magAtk) * mult)
+                    log("⚔ 魔剑共鸣 x${stacks}! 物攻法攻 +${45 * stacks}%")
+                case 10 => // 武僧 - 连击: +50%/stack, +15%heal/stack
+                    let mult = Float32(1) + Float32(0.5) * Float32(stacks)
+                    physAtk = Int32(Float32(physAtk) * mult)
+                    skillHealPct = Float32(0.15) * Float32(stacks)
+                    log("👊 连击 x${stacks}! 攻击+${50 * stacks}%")
+                case 11 => // 咒术师 - 恶咒: +40%/stack, +15%pen/stack
+                    let mult = Float32(1) + Float32(0.4) * Float32(stacks)
+                    magAtk = Int32(Float32(magAtk) * mult)
+                    skillMagPen = Float32(0.15) * Float32(stacks)
+                    if (skillMagPen > Float32(1)) { skillMagPen = Float32(1) }
                     aiDebuff = Float32(0.75)
-                    skillMagPen = Float32(0.15)
-                    log("👁 恶咒! 法攻+40%, 削弱敌方攻-25%/法防-15%")
-                case 12 => // 龙骑士 - 龙击
-                    physAtk = Int32(Float32(physAtk) * Float32(1.8))
-                    skillPhysPen = Float32(0.4)
-                    log("🐉 龙击! 物攻+80%, 穿透40%物防")
+                    log("👁 恶咒 x${stacks}! 法攻+${40 * stacks}%")
+                case 12 => // 龙骑士 - 龙击: +80%/stack, +40%pen/stack
+                    let mult = Float32(1) + Float32(0.8) * Float32(stacks)
+                    physAtk = Int32(Float32(physAtk) * mult)
+                    skillPhysPen = Float32(0.4) * Float32(stacks)
+                    if (skillPhysPen > Float32(1)) { skillPhysPen = Float32(1) }
+                    log("🐉 龙击 x${stacks}! 物攻+${80 * stacks}%")
                 case _ => ()
             }
-            playerSkillToggled = false
+            playerSkillStacks = 0
         }
 
         // Passive crit (暗影 skill boosts this via the threshold mechanism)
