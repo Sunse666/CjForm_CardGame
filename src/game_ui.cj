@@ -398,6 +398,8 @@ public class CardGameUI {
     private func onSkillToggle(): Unit {
         engine.addSkillStack()
         refreshSkillButton()
+        refreshSkillBars()
+        refreshMessageLog()
     }
 
     private func onDiceClick(index: Int32): Unit {
