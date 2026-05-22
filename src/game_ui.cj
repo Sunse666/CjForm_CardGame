@@ -596,7 +596,8 @@ public class CardGameUI {
                 if (engine.gameMode == GameMode.VS_PLAYER) {
                     selectTitle.setText("玩家1 — 选择角色")
                 }
-                raceTitle.setText("选择你的种族")
+                raceTitle.setText("玩家1 — 选择种族")
+                selectTitle.setPosition(Position.abs(OFF, OFF))
                 selectInfoLabel.setPosition(Position.abs(OFF, OFF))
                 for (b in classBtns) {
                     b.setText("")
@@ -606,6 +607,7 @@ public class CardGameUI {
             case GamePhase.SELECT_CHARACTER_P2 =>
                 engine.selectP2Class(cd)
                 raceTitle.setText("玩家2 — 选择种族")
+                selectTitle.setPosition(Position.abs(OFF, OFF))
                 selectInfoLabel.setPosition(Position.abs(OFF, OFF))
                 for (b in classBtns) {
                     b.setText("")
