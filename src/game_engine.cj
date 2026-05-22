@@ -63,6 +63,49 @@ public struct CharData {
     }
 }
 
+public struct RaceData {
+    public let id: Int32
+    public let name: String
+    public let desc: String
+    public let hpMod: Int32
+    public let physAtkMod: Float32
+    public let magAtkMod: Float32
+    public let physDefMod: Float32
+    public let magDefMod: Float32
+    public let spGainMod: Float32
+
+    public init(id: Int32, name: String, desc: String,
+                hpMod: Int32, physAtkMod: Float32, magAtkMod: Float32,
+                physDefMod: Float32, magDefMod: Float32, spGainMod: Float32) {
+        this.id = id
+        this.name = name
+        this.desc = desc
+        this.hpMod = hpMod
+        this.physAtkMod = physAtkMod
+        this.magAtkMod = magAtkMod
+        this.physDefMod = physDefMod
+        this.magDefMod = magDefMod
+        this.spGainMod = spGainMod
+    }
+}
+
+public func getAllRaces(): ArrayList<RaceData> {
+    let list = ArrayList<RaceData>()
+    list.add(RaceData(1, "龙裔", "每回合+4%攻(叠10层). ≥5层暴击触发龙威双倍伤害",
+        5, 0.03, 0.03, 0.0, 0.0, 1.0))
+    list.add(RaceData(2, "精灵", "每回合+1骰子(最高+3). +6%闪避/层, 闪避成功反击",
+        0, 0.0, 0.02, 0.02, 0.03, 1.0))
+    list.add(RaceData(3, "不死族", "每回合+2%HP回复/层(最高20%). 死亡复活80%HP(1次)",
+        -5, 0.05, 0.05, 0.0, 0.0, 0.95))
+    list.add(RaceData(4, "恶魔", "每回合扣3%HP换+6%攻. 暴击倍率+0.07/层. 击杀+3层",
+        -10, 0.08, 0.08, -0.02, -0.02, 1.05))
+    list.add(RaceData(5, "天人", "每回合全属性+2%(最高20%). SP满时技能消耗-50%",
+        8, 0.0, 0.0, 0.03, 0.03, 1.25))
+    list.add(RaceData(6, "虚空族", "每回合穿透+2%(最高20%). 攻击时偷取敌方最高骰子",
+        0, 0.02, 0.04, 0.0, 0.0, 1.0))
+    list
+}
+
 public func getAllClasses(): ArrayList<CharData> {
     let list = ArrayList<CharData>()
     list.add(CharData(1, "剑士", "均衡物理型 — 物法兼备",
@@ -94,21 +137,31 @@ public func getAllClasses(): ArrayList<CharData> {
 
 public class Character {
     public let data: CharData
+    public var race: RaceData
     public var hp: Int32
     public var skillPoints: Int32
     public var shields: Int32
     public var diceResults: ArrayList<Int32>
     public var physDice: ArrayList<Bool>
     public var magDice: ArrayList<Bool>
+    public var raceStacks: Int32
+    public var bonusDice: Int32
+    public var revived: Bool
+    public var demonBuff: Float32
 
     public init(data: CharData) {
         this.data = data
+        this.race = getAllRaces()[0]
         this.hp = data.maxHP
         this.skillPoints = 0
         this.shields = 3
         this.diceResults = ArrayList<Int32>()
         this.physDice = ArrayList<Bool>()
         this.magDice = ArrayList<Bool>()
+        this.raceStacks = 0
+        this.bonusDice = 0
+        this.revived = false
+        this.demonBuff = Float32(0)
         let totalDice = data.dicenum
         for (_ in 0..totalDice) {
             diceResults.add(0)
@@ -177,7 +230,7 @@ public class Character {
     }
 
     public func rollDice(rng: Rng): Unit {
-        let totalDice = data.dicenum
+        let totalDice = data.dicenum + bonusDice
         let newDice = ArrayList<Int32>()
         let newPhys = ArrayList<Bool>()
         let newMag = ArrayList<Bool>()
@@ -323,11 +376,20 @@ public class Character {
     }
 
     public func canUseSkill(): Bool {
-        skillPoints >= data.activeSkillCost
+        let cost = effectiveSkillCost()
+        skillPoints >= cost
+    }
+
+    public func effectiveSkillCost(): Int32 {
+        if (race.id == 5 && skillPoints >= data.activeSkillCost) {
+            data.activeSkillCost / 2
+        } else {
+            data.activeSkillCost
+        }
     }
 
     public func useSkill(): Unit {
-        skillPoints = 0
+        skillPoints = skillPoints - effectiveSkillCost()
     }
 
     public func checkPassiveSkill(rng: Rng): Bool {
@@ -335,7 +397,7 @@ public class Character {
     }
 
     public func addSkillPoints(amount: Int32): Unit {
-        skillPoints = skillPoints + amount
+        skillPoints = skillPoints + Int32(Float32(amount) * race.spGainMod)
     }
 }
 
@@ -354,7 +416,9 @@ public enum GameMode {
 public enum GamePhase {
     | SELECT_MODE
     | SELECT_CHARACTER
+    | SELECT_RACE
     | SELECT_CHARACTER_P2
+    | SELECT_RACE_P2
     | PLAYER_ROLL
     | PLAYER_ATTACK
     | AI_TURN
@@ -366,7 +430,9 @@ public enum GamePhase {
         match (this) {
             case SELECT_MODE => match (right) { case SELECT_MODE => true; case _ => false }
             case SELECT_CHARACTER => match (right) { case SELECT_CHARACTER => true; case _ => false }
+            case SELECT_RACE => match (right) { case SELECT_RACE => true; case _ => false }
             case SELECT_CHARACTER_P2 => match (right) { case SELECT_CHARACTER_P2 => true; case _ => false }
+            case SELECT_RACE_P2 => match (right) { case SELECT_RACE_P2 => true; case _ => false }
             case PLAYER_ROLL => match (right) { case PLAYER_ROLL => true; case _ => false }
             case PLAYER_ATTACK => match (right) { case PLAYER_ATTACK => true; case _ => false }
             case AI_TURN => match (right) { case AI_TURN => true; case _ => false }
@@ -432,16 +498,41 @@ public class CardGameEngine {
             let idx = aiIdx - 1
             ai = Character(allClasses[Int64(idx)])
             log("AI选择了: ${ai.data.name} — ${ai.data.desc}")
-            phase = GamePhase.PLAYER_ROLL
+            // AI随机选择种族
+            let allRaces = getAllRaces()
+            let aiRaceIdx = rng.nextInt(Int32(allRaces.size))
+            let aiRaceIdx2 = aiRaceIdx - 1
+            ai.race = allRaces[Int64(aiRaceIdx2)]
+            ai.hp = ai.data.maxHP + ai.race.hpMod
+            log("AI种族: ${ai.race.name} — ${ai.race.desc}")
+            phase = GamePhase.SELECT_RACE
         } else {
             log("玩家1选择了: ${charData.name} — ${charData.desc}")
-            phase = GamePhase.SELECT_CHARACTER_P2
+            phase = GamePhase.SELECT_RACE
         }
     }
 
     public func selectP2Class(charData: CharData): Unit {
         ai = Character(charData)
         log("玩家2选择了: ${charData.name} — ${charData.desc}")
+        phase = GamePhase.SELECT_RACE_P2
+    }
+
+    public func selectPlayerRace(raceData: RaceData): Unit {
+        player.race = raceData
+        player.hp = player.data.maxHP + raceData.hpMod
+        log("你选择了种族: ${raceData.name} — ${raceData.desc}")
+        if (gameMode == GameMode.VS_AI) {
+            phase = GamePhase.PLAYER_ROLL
+        } else {
+            phase = GamePhase.SELECT_CHARACTER_P2
+        }
+    }
+
+    public func selectP2Race(raceData: RaceData): Unit {
+        ai.race = raceData
+        ai.hp = ai.data.maxHP + raceData.hpMod
+        log("玩家2选择了种族: ${raceData.name} — ${raceData.desc}")
         halfTurnCount = 0
         phase = GamePhase.PLAYER_ROLL
     }
@@ -491,7 +582,7 @@ public class CardGameEngine {
 
     public func addSkillStack(): Unit {
         if (player.canUseSkill()) {
-            player.skillPoints = player.skillPoints - player.data.activeSkillCost
+            player.skillPoints = player.skillPoints - player.effectiveSkillCost()
             playerSkillStacks = playerSkillStacks + 1
         }
     }
@@ -589,12 +680,59 @@ public class CardGameEngine {
             playerSkillStacks = 0
         }
 
-        // Passive crit (暗影 skill boosts this via the threshold mechanism)
+        // Race offensive effects
+        let pRaceId = player.race.id
+        // 天人: 全属性buff
+        if (pRaceId == 5 && player.raceStacks > 0) {
+            let celestialMult = Float32(1) + Float32(0.02) * Float32(player.raceStacks)
+            physAtk = Int32(Float32(physAtk) * celestialMult)
+            magAtk = Int32(Float32(magAtk) * celestialMult)
+        }
+        // 恶魔: demonBuff
+        if (pRaceId == 4 && player.demonBuff > Float32(0)) {
+            physAtk = Int32(Float32(physAtk) * (Float32(1) + player.demonBuff))
+            magAtk = Int32(Float32(magAtk) * (Float32(1) + player.demonBuff))
+            player.demonBuff = Float32(0)
+        }
+        // 虚空族: 偷取敌方最高骰子
+        if (pRaceId == 6 && ai.diceResults.size > 0) {
+            var bestDie: Int32 = 0
+            for (d in ai.diceResults) {
+                if (d > bestDie) { bestDie = d }
+            }
+            physAtk = physAtk + Int32(Float32(bestDie) * player.data.physicalAttackMul)
+            log("虚空侵蚀: 偷取敌方最高骰子 ${bestDie}!")
+        }
+        // 龙裔: 龙怒攻击加成
+        if (pRaceId == 1 && player.raceStacks > 0) {
+            let dragonMult = Float32(1) + Float32(0.04) * Float32(player.raceStacks)
+            physAtk = Int32(Float32(physAtk) * dragonMult)
+            magAtk = Int32(Float32(magAtk) * dragonMult)
+        }
+
+        // Passive crit with race bonuses
         if (player.checkPassiveSkill(rng)) {
-            let critMult = if (player.data.id == 3 && player.skillPoints == 0) { Float32(4) } else { Float32(4) }
+            var critMult: Float32 = Float32(4)
+            // 恶魔: 暴击倍率+0.07/层
+            if (pRaceId == 4) {
+                critMult = critMult + Float32(0.07) * Float32(player.raceStacks)
+            }
+            // 龙裔: ≥5层龙怒触发龙威双倍
+            var dragonFury: Bool = false
+            if (pRaceId == 1 && player.raceStacks >= 5) {
+                critMult = critMult * Float32(2)
+                player.raceStacks = player.raceStacks - 5
+                dragonFury = true
+            }
             physAtk = Int32(Float32(physAtk) * critMult)
             magAtk = Int32(Float32(magAtk) * critMult)
-            log("被动技能暴击! x${critMult} -> 物攻:${physAtk} 法攻:${magAtk}")
+            if (dragonFury) {
+                log("🐉 龙威咆哮! 暴击x${critMult} -> 物攻:${physAtk} 法攻:${magAtk}")
+            } else if (pRaceId == 4) {
+                log("被动技能暴击! x${critMult} (恶魔之力) -> 物攻:${physAtk} 法攻:${magAtk}")
+            } else {
+                log("被动技能暴击! x${critMult} -> 物攻:${physAtk} 法攻:${magAtk}")
+            }
         }
 
         let totalRaw = physAtk + magAtk
@@ -610,12 +748,12 @@ public class CardGameEngine {
 
         // 2P: apply effects, store info, defender will respond
         if (gameMode == GameMode.VS_PLAYER) {
-            if (skillLifesteal > Float32(0)) {
+            if (skillLifesteal > Float32(0) && player.hp > 0) {
                 let heal = Int32(Float32(totalRaw) * skillLifesteal)
                 player.hp = min2(player.data.maxHP, player.hp + heal)
                 log("灵魂收割: 吸血回复 ${heal} HP")
             }
-            if (skillHealPct > Float32(0)) {
+            if (skillHealPct > Float32(0) && player.hp > 0) {
                 let heal = Int32(Float32(player.data.maxHP) * skillHealPct)
                 player.hp = min2(player.data.maxHP, player.hp + heal)
                 log("回复 ${heal} HP")
@@ -647,6 +785,14 @@ public class CardGameEngine {
             physDef = Int32(Float32(physDef) * (Float32(1) - skillPhysPen))
             magDef = Int32(Float32(magDef) * (Float32(1) - skillMagPen))
         }
+        // 虚空族穿透
+        var voidPen: Float32 = Float32(0)
+        if (pRaceId == 6 && player.raceStacks > 0) {
+            voidPen = Float32(0.02) * Float32(player.raceStacks)
+            physDef = Int32(Float32(physDef) * (Float32(1) - voidPen))
+            magDef = Int32(Float32(magDef) * (Float32(1) - voidPen))
+            log("虚空侵蚀: 穿透${Int32(voidPen * Float32(100))}%防御")
+        }
         log("AI物防骰: ${physDef}(${ai.getPhysCount()}个), 法防骰: ${magDef}(${ai.getMagCount()}个)")
 
         let physDmg = Int32(Float32(max2(0, physAtk - physDef)) * (Float32(1) - ai.data.physicalDefense))
@@ -654,30 +800,64 @@ public class CardGameEngine {
         var totalDmg = physDmg + magDmg
 
         // Lifesteal
-        if (skillLifesteal > Float32(0)) {
+        if (skillLifesteal > Float32(0) && player.hp > 0) {
             let heal = Int32(Float32(totalDmg) * skillLifesteal)
             player.hp = min2(player.data.maxHP, player.hp + heal)
             log("灵魂收割: 吸血回复 ${heal} HP")
         }
 
         // Heal
-        if (skillHealPct > Float32(0)) {
+        if (skillHealPct > Float32(0) && player.hp > 0) {
             let heal = Int32(Float32(player.data.maxHP) * skillHealPct)
             player.hp = min2(player.data.maxHP, player.hp + heal)
             log("圣光审判: 回复 ${heal} HP")
         }
 
+        // AI 精灵闪避
+        if (ai.race.id == 2 && ai.raceStacks > 0 && totalDmg > 0) {
+            let dodgeChance = Float32(ai.raceStacks) * Float32(0.06)
+            if (rng.nextFloat() < dodgeChance) {
+                log("🍃 AI精灵闪避! 伤害完全回避")
+                let counterDmg = Int32(Float32(totalRaw) * Float32(0.3))
+                player.hp = max2(0, player.hp - counterDmg)
+                log("🍃 AI精灵反击! 你受到 ${counterDmg} 伤害")
+                totalDmg = 0
+            }
+        }
+
         ai.hp = max2(0, ai.hp - totalDmg)
         log("AI受到 物伤:${physDmg} + 法伤:${magDmg} = ${totalDmg} 伤害, 剩余HP: ${ai.hp}/${ai.data.maxHP}")
+
+        // AI 不死族复活
+        if (ai.race.id == 3 && ai.hp <= 0 && !ai.revived) {
+            ai.hp = Int32(Float32(ai.data.maxHP + ai.race.hpMod) * Float32(0.8))
+            ai.revived = true
+            ai.raceStacks = max2(0, ai.raceStacks / 2)
+            log("💀 AI亡者归来! ${ai.data.name}复活了! HP:${ai.hp}")
+        }
+
+        // 恶魔: 击杀奖励+3层
+        if (pRaceId == 4 && ai.hp <= 0 && player.raceStacks < 10) {
+            player.raceStacks = min2(10, player.raceStacks + 3)
+            log("💀 恶魔之喜! 击杀奖励+3层 (${player.raceStacks}/10)")
+        }
 
         player.addSkillPoints(totalRaw * 2)
         ai.addSkillPoints(totalRaw)
 
-        phase = if (gameMode == GameMode.VS_AI) { GamePhase.AI_TURN } else { GamePhase.PLAYER_DEFEND }
+        if (gameMode == GameMode.VS_AI) {
+            phase = if (ai.hp <= 0) { GamePhase.GAME_OVER } else { GamePhase.AI_TURN }
+        } else {
+            phase = GamePhase.PLAYER_DEFEND
+        }
         totalDmg
     }
 
     public func aiAttack(): Int32 {
+        if (ai.hp <= 0) {
+            phase = GamePhase.ROUND_RESULT
+            return 0
+        }
         ai.rollDice(rng)
         let aiAtkPhysRatio = ai.data.physicalAttackMul / (ai.data.physicalAttackMul + ai.data.magicalAttackMul)
         ai.aiSelect(ai.data.ATKnum, aiAtkPhysRatio)
@@ -717,9 +897,13 @@ public class CardGameEngine {
                 case 6 =>
                     physAtk = Int32(Float32(physAtk) * Float32(1.25))
                     magAtk = Int32(Float32(magAtk) * Float32(1.25))
-                    let heal = Int32(Float32(ai.data.maxHP) * Float32(0.2))
-                    ai.hp = min2(ai.data.maxHP, ai.hp + heal)
-                    log("AI ✨ 圣光审判! 攻击+25%, 回复 ${heal} HP")
+                    if (ai.hp > 0) {
+                        let heal = Int32(Float32(ai.data.maxHP) * Float32(0.2))
+                        ai.hp = min2(ai.data.maxHP, ai.hp + heal)
+                        log("AI ✨ 圣光审判! 攻击+25%, 回复 ${heal} HP")
+                    } else {
+                        log("AI ✨ 圣光审判! 攻击+25%")
+                    }
                 case 7 =>
                     magAtk = Int32(Float32(magAtk) * Float32(2.0))
                     aiSkillIgnoreDice = true
@@ -734,9 +918,13 @@ public class CardGameEngine {
                     log("AI ⚔ 魔剑共鸣! 物攻法攻 +45%")
                 case 10 =>
                     physAtk = Int32(Float32(physAtk) * Float32(1.5))
-                    let heal10 = Int32(Float32(ai.data.maxHP) * Float32(0.15))
-                    ai.hp = min2(ai.data.maxHP, ai.hp + heal10)
-                    log("AI 👊 连击! 攻击+50%, 回复 ${heal10} HP")
+                    if (ai.hp > 0) {
+                        let heal10 = Int32(Float32(ai.data.maxHP) * Float32(0.15))
+                        ai.hp = min2(ai.data.maxHP, ai.hp + heal10)
+                        log("AI 👊 连击! 攻击+50%, 回复 ${heal10} HP")
+                    } else {
+                        log("AI 👊 连击! 攻击+50%")
+                    }
                 case 11 =>
                     magAtk = Int32(Float32(magAtk) * Float32(1.4))
                     aiSkillMagPen = Float32(0.15)
@@ -749,10 +937,54 @@ public class CardGameEngine {
             }
         }
 
+        // AI race offensive effects
+        let aRaceId = ai.race.id
+        // 天人
+        if (aRaceId == 5 && ai.raceStacks > 0) {
+            let celestialMult = Float32(1) + Float32(0.02) * Float32(ai.raceStacks)
+            physAtk = Int32(Float32(physAtk) * celestialMult)
+            magAtk = Int32(Float32(magAtk) * celestialMult)
+        }
+        // 恶魔
+        if (aRaceId == 4 && ai.demonBuff > Float32(0)) {
+            physAtk = Int32(Float32(physAtk) * (Float32(1) + ai.demonBuff))
+            magAtk = Int32(Float32(magAtk) * (Float32(1) + ai.demonBuff))
+            ai.demonBuff = Float32(0)
+        }
+        // 虚空族
+        if (aRaceId == 6 && player.diceResults.size > 0) {
+            var bestDie: Int32 = 0
+            for (d in player.diceResults) {
+                if (d > bestDie) { bestDie = d }
+            }
+            physAtk = physAtk + Int32(Float32(bestDie) * ai.data.physicalAttackMul)
+            log("AI虚空侵蚀: 偷取敌方最高骰子 ${bestDie}!")
+        }
+        // 龙裔
+        if (aRaceId == 1 && ai.raceStacks > 0) {
+            let dragonMult = Float32(1) + Float32(0.04) * Float32(ai.raceStacks)
+            physAtk = Int32(Float32(physAtk) * dragonMult)
+            magAtk = Int32(Float32(magAtk) * dragonMult)
+        }
+
         if (ai.checkPassiveSkill(rng)) {
-            physAtk = Int32(Float32(physAtk) * Float32(4))
-            magAtk = Int32(Float32(magAtk) * Float32(4))
-            log("AI被动技能暴击!")
+            var critMult: Float32 = Float32(4)
+            if (aRaceId == 4) {
+                critMult = critMult + Float32(0.07) * Float32(ai.raceStacks)
+            }
+            var dragonFury: Bool = false
+            if (aRaceId == 1 && ai.raceStacks >= 5) {
+                critMult = critMult * Float32(2)
+                ai.raceStacks = ai.raceStacks - 5
+                dragonFury = true
+            }
+            physAtk = Int32(Float32(physAtk) * critMult)
+            magAtk = Int32(Float32(magAtk) * critMult)
+            if (dragonFury) {
+                log("AI 🐉 龙威咆哮! 暴击!")
+            } else {
+                log("AI被动技能暴击!")
+            }
         }
 
         // Apply debuff from player's skill
@@ -805,6 +1037,12 @@ public class CardGameEngine {
             aiSkillPhysPen = Float32(0)
             aiSkillMagPen = Float32(0)
         }
+        // 虚空族穿透 (攻击方)
+        if (attacker.race.id == 6 && attacker.raceStacks > 0) {
+            let atkVoidPen = Float32(0.02) * Float32(attacker.raceStacks)
+            physDef = Int32(Float32(physDef) * (Float32(1) - atkVoidPen))
+            magDef = Int32(Float32(magDef) * (Float32(1) - atkVoidPen))
+        }
         log("${defender.data.name}物防骰: ${physDef}(${defender.getPhysCount()}个), 法防骰: ${magDef}(${defender.getMagCount()}个)")
 
         var physDmg = Int32(Float32(max2(0, lastAIPhysAtk - physDef)) * (Float32(1) - defender.data.physicalDefense))
@@ -830,13 +1068,43 @@ public class CardGameEngine {
             playerCounter = Float32(0)
         }
 
+        // 精灵闪避
+        if (defender.race.id == 2 && defender.raceStacks > 0 && totalDmg > 0) {
+            let dodgeChance = Float32(defender.raceStacks) * Float32(0.06)
+            if (rng.nextFloat() < dodgeChance) {
+                log("🍃 精灵闪避! 伤害完全回避 (闪避率${Int32(dodgeChance * Float32(100))}%)")
+                // 反击: 造成攻击方物攻的30%伤害
+                let counterDmg = Int32(Float32(lastAIPhysAtk) * Float32(0.3))
+                attacker.hp = max2(0, attacker.hp - counterDmg)
+                log("🍃 精灵反击! ${attacker.data.name}受到 ${counterDmg} 伤害")
+                totalDmg = 0
+            }
+        }
+
         defender.hp = max2(0, defender.hp - totalDmg)
         log("${defender.data.name}受到 物伤:${physDmg} + 法伤:${magDmg} = ${totalDmg} 伤害, 剩余HP: ${defender.hp}/${defender.data.maxHP}")
+
+        // 不死族复活
+        if (defender.race.id == 3 && defender.hp <= 0 && !defender.revived) {
+            defender.hp = Int32(Float32(defender.data.maxHP + defender.race.hpMod) * Float32(0.8))
+            defender.revived = true
+            defender.raceStacks = max2(0, defender.raceStacks / 2)
+            log("💀 亡者归来! ${defender.data.name}复活了! HP:${defender.hp}")
+        }
+
+        // 恶魔: 击杀奖励 (defender被击杀 → 攻击方恶魔+3层)
+        if (attacker.race.id == 4 && defender.hp <= 0 && attacker.raceStacks < 10) {
+            attacker.raceStacks = min2(10, attacker.raceStacks + 3)
+            log("💀 恶魔之喜! ${attacker.data.name}+3层 (${attacker.raceStacks}/10)")
+        }
 
         defender.addSkillPoints(lastAIPhysAtk + lastAIMagAtk)
         attacker.addSkillPoints((lastAIPhysAtk + lastAIMagAtk) * 2)
 
-        if (gameMode == GameMode.VS_PLAYER) {
+        // 检查是否有角色阵亡 → 直接进入结束界面
+        if (player.hp <= 0 || ai.hp <= 0) {
+            phase = GamePhase.GAME_OVER
+        } else if (gameMode == GameMode.VS_PLAYER) {
             halfTurnCount = halfTurnCount + 1
             swapPlayers()
             if (halfTurnCount >= 2) {
@@ -873,7 +1141,58 @@ public class CardGameEngine {
         if (isGameOver()) {
             phase = GamePhase.GAME_OVER
         } else {
+            applyRaceRoundBonus(player)
+            applyRaceRoundBonus(ai)
             phase = GamePhase.PLAYER_ROLL
+        }
+    }
+
+    private func applyRaceRoundBonus(ch: Character): Unit {
+        let rid = ch.race.id
+        match (rid) {
+            case 1 => // 龙裔: +4%攻击, 最高10层
+                if (ch.raceStacks < 10) {
+                    ch.raceStacks = ch.raceStacks + 1
+                }
+                log("${ch.data.name} 龙裔龙怒: ${ch.raceStacks}/10层")
+            case 2 => // 精灵: +1骰子, 最高3层; +6%闪避/层
+                if (ch.raceStacks < 3) {
+                    ch.raceStacks = ch.raceStacks + 1
+                    ch.bonusDice = ch.raceStacks
+                }
+                log("${ch.data.name} 精灵自然祝福: ${ch.raceStacks}/3层 (+${ch.bonusDice}骰子)")
+            case 3 => // 不死族: +2%最大HP回复/层, 最高10层
+                if (ch.raceStacks < 10) {
+                    ch.raceStacks = ch.raceStacks + 1
+                }
+                if (ch.hp > 0) {
+                    let heal3 = Int32(Float32(ch.data.maxHP) * Float32(0.02) * Float32(ch.raceStacks))
+                    ch.hp = min2(ch.data.maxHP + ch.race.hpMod, ch.hp + heal3)
+                    log("${ch.data.name} 不死族回复: +${heal3} HP (${ch.raceStacks}/10层)")
+                } else {
+                    log("${ch.data.name} 不死族: ${ch.raceStacks}/10层 (已阵亡, 跳过回复)")
+                }
+            case 4 => // 恶魔: +3%暴击倍率/层, 每回合扣3%HP换+6%攻
+                if (ch.raceStacks < 10) {
+                    ch.raceStacks = ch.raceStacks + 1
+                }
+                let burn = Int32(Float32(ch.hp) * Float32(0.03))
+                if (burn > 0) {
+                    ch.hp = max2(1, ch.hp - burn)
+                }
+                ch.demonBuff = Float32(0.06)
+                log("${ch.data.name} 恶魔契约: 燃烧${burn}HP, +6%攻 (${ch.raceStacks}/10层)")
+            case 5 => // 天人: +2%全属性, 最高10层
+                if (ch.raceStacks < 10) {
+                    ch.raceStacks = ch.raceStacks + 1
+                }
+                log("${ch.data.name} 天人合一: ${ch.raceStacks}/10层 (+${ch.raceStacks * 2}%全属性)")
+            case 6 => // 虚空族: +2%穿透, 最高10层
+                if (ch.raceStacks < 10) {
+                    ch.raceStacks = ch.raceStacks + 1
+                }
+                log("${ch.data.name} 虚空侵蚀: ${ch.raceStacks}/10层 (+${ch.raceStacks * 2}%穿透)")
+            case _ => ()
         }
     }
 
