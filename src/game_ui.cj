@@ -1303,7 +1303,7 @@ public class CardGameUI {
                         pos = pos + 1
                     }
                     sendToNetStr(MsgBuilder(DICE_ASSIGN).add("phys", encodeIntArray(physIdx)).add("mag", encodeIntArray(magIdx)).build())
-                case ROUND_RESULT | GAME_OVER =>
+                case ROUND_RESULT =>
                     engine.log("请等待房主操作")
                     refreshMessageLog()
                 case _ => ()
