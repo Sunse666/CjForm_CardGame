@@ -12,6 +12,7 @@ public class CardGameUI {
     private var modeBtnAI: Button
     private var modeBtn2P: Button
     private var modeBtnLAN: Button
+    private var modeBtnRemote: Button
 
     //LAN Lobby
     private var lobbyTitle: Label
@@ -82,6 +83,23 @@ public class CardGameUI {
     private var magDiceStyle: ButtonStyle
     private var spFullStyle: ProgressBarStyle
     private var spNormStyle: ProgressBarStyle
+
+    //Remote Lobby
+    private var remoteTitle: Label
+    private var remoteBtnCreate: Button
+    private var remoteCodeLabel: Label
+    private var remoteBtnCopy: Button
+    private var remoteCodeInput: TextBox
+    private var remoteBtnJoin: Button
+    private var remoteInfoLabel: Label
+    private var remoteBackBtn: Button
+    private var remoteCode: String
+    private var remoteConnecting: Bool
+    private var relayMode: Bool
+    private var relayHandshakeSent: Bool
+    private var relayHandshakeDone: Bool
+    private var relayHost: String
+    private var relayPort: Int32
 
     //Chat
     private var chatInput: TextBox
@@ -186,10 +204,16 @@ public class CardGameUI {
         window.addWidget(modeBtn2P)
 
         modeBtnLAN = Button("局域网联机",
-            Position.abs(WIN_W / Float32(2), Float32(260)), Float32(240), Float32(60),
+            Position.abs(WIN_W / Float32(2) - Float32(170), Float32(260)), Float32(240), Float32(60),
             "Microsoft YaHei", Float32(16), SizeScale.fixed(), Anchor.Center,
             ButtonStyle.outlined(), { => () })
         window.addWidget(modeBtnLAN)
+
+        modeBtnRemote = Button("远程联机",
+            Position.abs(WIN_W / Float32(2) + Float32(170), Float32(260)), Float32(240), Float32(60),
+            "Microsoft YaHei", Float32(16), SizeScale.fixed(), Anchor.Center,
+            ButtonStyle.outlined(), { => () })
+        window.addWidget(modeBtnRemote)
 
         //LAN LOBBY
         lobbyTitle = Label("局域网联机",
@@ -447,6 +471,63 @@ public class CardGameUI {
             ButtonStyle.outlined(), { => () })
         window.addWidget(chatSendBtn)
 
+        //Remote lobby
+        remoteCode = ""
+        remoteConnecting = false
+        relayMode = false
+        relayHandshakeSent = false
+        relayHandshakeDone = false
+        relayHost = readConfigStr("relay", "host", "")
+        relayPort = readConfigInt("relay", "port", 9528)
+        if (relayHost.size == 0) {
+            relayHost = "127.0.0.1"  // fallback for local testing
+        }
+
+        remoteTitle = Label("远程联机",
+            Position.abs(OFF, OFF), c.accent,
+            "Microsoft YaHei", Float32(22), SizeScale.fixed(), Anchor.Center)
+        window.addWidget(remoteTitle)
+
+        remoteBtnCreate = Button("创建房间",
+            Position.abs(OFF, OFF), Float32(240), Float32(60),
+            "Microsoft YaHei", Float32(16), SizeScale.fixed(), Anchor.Center,
+            ButtonStyle.outlined(), { => () })
+        window.addWidget(remoteBtnCreate)
+
+        remoteCodeLabel = Label("",
+            Position.abs(OFF, OFF), c.accent,
+            "Consolas", Float32(20), SizeScale.fixed(), Anchor.Center)
+        window.addWidget(remoteCodeLabel)
+
+        remoteBtnCopy = Button("复制邀请码",
+            Position.abs(OFF, OFF), Float32(140), Float32(36),
+            "Microsoft YaHei", Float32(13), SizeScale.fixed(), Anchor.Center,
+            ButtonStyle.outlined(), { => () })
+        window.addWidget(remoteBtnCopy)
+
+        remoteCodeInput = TextBox(Position.abs(OFF, OFF), Float32(240), Float32(36),
+            "Consolas", Float32(16), SizeScale.fixed(),
+            TextBoxStyle.fromTheme(), "粘贴邀请码...")
+        window.addWidget(remoteCodeInput)
+        remoteCodeInput.setParentHwnd(window.getHandle())
+
+        remoteBtnJoin = Button("通过邀请码连接",
+            Position.abs(OFF, OFF), Float32(180), Float32(36),
+            "Microsoft YaHei", Float32(13), SizeScale.fixed(), Anchor.Center,
+            ButtonStyle.outlined(), { => () })
+        window.addWidget(remoteBtnJoin)
+
+        remoteInfoLabel = Label("",
+            Position.abs(OFF, OFF), c.textSecondary,
+            "Microsoft YaHei", Float32(13), SizeScale.fixed(), Anchor.Center)
+        window.addWidget(remoteInfoLabel)
+
+        remoteBackBtn = Button("返回",
+            Position.abs(OFF, OFF), Float32(120), Float32(40),
+            "Microsoft YaHei", Float32(14), SizeScale.fixed(), Anchor.Center,
+            ButtonStyle.outlined(), { => () })
+        window.addWidget(remoteBackBtn)
+
         //WIRE
         wireCallbacks()
         window.setIdleCallback({ => onIdle() })
@@ -457,6 +538,7 @@ public class CardGameUI {
         modeBtnAI.onClick() { onModePick(false) }
         modeBtn2P.onClick() { onModePick(true) }
         modeBtnLAN.onClick() { showLobbyScreen() }
+        modeBtnRemote.onClick() { showRemoteScreen() }
         lobbyBtnHost.onClick() { onHostRoom() }
         lobbyBtnJoin.onClick() { onJoinRoom() }
         lobbyBackBtn.onClick() {
@@ -491,6 +573,10 @@ public class CardGameUI {
         actionBtn.onClick() { onAction() }
         playerSkillBtn.onClick() { onSkillToggle() }
         chatSendBtn.onClick() { onSendChat() }
+        remoteBtnCreate.onClick() { onRemoteCreate() }
+        remoteBtnCopy.onClick() { onRemoteCopy() }
+        remoteBtnJoin.onClick() { onRemoteJoin() }
+        remoteBackBtn.onClick() { onRemoteBack() }
     }
 
     //Mode Screen
@@ -504,10 +590,15 @@ public class CardGameUI {
         modeBtn2P.setStyle(ButtonStyle.outlined())
 
         modeBtnLAN.setText("局域网联机")
-        modeBtnLAN.setPosition(Position.abs(WIN_W / Float32(2), Float32(260)))
+        modeBtnLAN.setPosition(Position.abs(WIN_W / Float32(2) - Float32(170), Float32(260)))
         modeBtnLAN.setStyle(ButtonStyle.outlined())
 
+        modeBtnRemote.setText("远程联机")
+        modeBtnRemote.setPosition(Position.abs(WIN_W / Float32(2) + Float32(170), Float32(260)))
+        modeBtnRemote.setStyle(ButtonStyle.outlined())
+
         hideLobbyScreen()
+        hideRemoteScreen()
 
         selectTitle.setPosition(Position.abs(OFF, OFF))
         selectInfoLabel.setPosition(Position.abs(OFF, OFF))
@@ -528,6 +619,8 @@ public class CardGameUI {
         modeBtn2P.setPosition(Position.abs(OFF, OFF))
         modeBtnLAN.setText("")
         modeBtnLAN.setPosition(Position.abs(OFF, OFF))
+        modeBtnRemote.setText("")
+        modeBtnRemote.setPosition(Position.abs(OFF, OFF))
     }
 
     private func onModePick(isTwoPlayer: Bool): Unit {
@@ -579,6 +672,98 @@ public class CardGameUI {
         lobbyInfoLabel.setText("正在搜索房间...")
     }
 
+    private func showRemoteScreen(): Unit {
+        hideModeScreen()
+        remoteTitle.setPosition(Position.abs(WIN_W / Float32(2), Float32(80)))
+        remoteBtnCreate.setPosition(Position.abs(WIN_W / Float32(2), Float32(170)))
+        remoteCodeLabel.setText("")
+        remoteCodeLabel.setPosition(Position.abs(WIN_W / Float32(2), Float32(240)))
+        remoteBtnCopy.setPosition(Position.abs(WIN_W / Float32(2), Float32(290)))
+        remoteCodeInput.setText("")
+        remoteCodeInput.setLayoutFrame(LayoutFrame(WIN_W / Float32(2) - Float32(120), Float32(340), Float32(240), Float32(36)))
+        remoteBtnJoin.setPosition(Position.abs(WIN_W / Float32(2), Float32(400)))
+        remoteInfoLabel.setText("")
+        remoteInfoLabel.setPosition(Position.abs(WIN_W / Float32(2), Float32(450)))
+        remoteBackBtn.setPosition(Position.abs(WIN_W / Float32(2), Float32(510)))
+    }
+
+    private func hideRemoteScreen(): Unit {
+        remoteTitle.setPosition(Position.abs(OFF, OFF))
+        remoteBtnCreate.setPosition(Position.abs(OFF, OFF))
+        remoteCodeLabel.setPosition(Position.abs(OFF, OFF))
+        remoteBtnCopy.setPosition(Position.abs(OFF, OFF))
+        remoteCodeInput.clearLayoutFrame()
+        remoteCodeInput.setPosition(Position.abs(OFF, OFF))
+        remoteBtnJoin.setPosition(Position.abs(OFF, OFF))
+        remoteInfoLabel.setPosition(Position.abs(OFF, OFF))
+        remoteBackBtn.setPosition(Position.abs(OFF, OFF))
+        remoteCode = ""
+        remoteConnecting = false
+    }
+
+    private func onRemoteCreate(): Unit {
+        netInit()
+        //Generate random room code (6 chars)
+        remoteCode = genRoomCode()
+        remoteCodeLabel.setText(remoteCode)
+        //Connect to relay as HOST
+        isHost = true
+        relayMode = true
+        relayHandshakeSent = false
+        relayHandshakeDone = false
+        lanClient.startConnect(relayHost, relayPort)
+        connecting = true
+        remoteInfoLabel.setText("邀请码已生成，发给对手即可\n中继服务器: ${relayHost}:${relayPort}")
+        window.requestRender()
+    }
+
+    private func onRemoteCopy(): Unit {
+        if (remoteCode.size > 0) {
+            ffi_clipboardSetText(remoteCode)
+            remoteInfoLabel.setText("已复制到剪贴板! 发给对手即可连接")
+            window.requestRender()
+        }
+    }
+
+    private func onRemoteJoin(): Unit {
+        let code = remoteCodeInput.getText()
+        if (code.size < 4) {
+            remoteInfoLabel.setText("请输入有效的房间码")
+            window.requestRender()
+            return
+        }
+        netInit()
+        relayMode = true
+        relayHandshakeSent = false
+        relayHandshakeDone = false
+        isHost = false
+        remoteCode = code
+        lanClient.startConnect(relayHost, relayPort)
+        connecting = true
+        remoteConnecting = true
+        remoteInfoLabel.setText("正在连接中继服务器...")
+        window.requestRender()
+    }
+
+    private func onRemoteBack(): Unit {
+        if (relayMode) {
+            lanClient.disconnect()
+        } else if (isHost) {
+            lanServer.stop()
+        } else {
+            lanClient.disconnect()
+        }
+        discovering = false
+        connecting = false
+        remoteConnecting = false
+        relayMode = false
+        relayHandshakeSent = false
+        relayHandshakeDone = false
+        isHost = false
+        hideRemoteScreen()
+        showModeScreen()
+    }
+
     //Check if it's this player's turn in network mode
     private func isMyTurn(): Bool {
         if (!lanGameStarted) { return true }
@@ -599,6 +784,10 @@ public class CardGameUI {
     }
 
     public func pollNetwork(): Unit {
+        if (relayMode) {
+            pollRelayNetwork()
+            return
+        }
         if (isHost) {
             lanServer.acceptClient()
             if (!lanGameStarted) {
@@ -645,19 +834,113 @@ public class CardGameUI {
         } else if (connecting) {
             if (lanClient.pollConnect()) {
                 connecting = false
-                lobbyInfoLabel.setText("已连接到 ${connectHost}\n等待房主开始游戏...")
+                remoteConnecting = false
+                let okMsg = "已连接到 ${connectHost}\n等待房主开始游戏..."
+                lobbyInfoLabel.setText(okMsg)
+                remoteInfoLabel.setText(okMsg)
                 lanClient.sendString(MsgBuilder(READY).build())
                 window.requestRender()
             } else if (!lanClient.isConnecting()) {
                 connecting = false
-                lobbyInfoLabel.setText("连接失败! (${connectHost}:${lanPort})")
+                remoteConnecting = false
+                let failMsg = "连接失败! (${connectHost}:${lanPort})"
+                lobbyInfoLabel.setText(failMsg)
+                remoteInfoLabel.setText(failMsg)
                 window.requestRender()
             }
         }
     }
 
+    private func pollRelayNetwork(): Unit {
+        //Phase 1: TCP connect + handshake
+        if (!relayHandshakeDone) {
+            if (connecting) {
+                if (lanClient.pollConnect()) {
+                    connecting = false
+                    remoteConnecting = false
+                    if (!relayHandshakeSent) {
+                        let role = if (isHost) { "HOST" } else { "GUEST" }
+                        lanClient.sendRaw("${role}:${remoteCode}\n")
+                        relayHandshakeSent = true
+                        remoteInfoLabel.setText("已连接中继，等待对手...")
+                        window.requestRender()
+                    }
+                } else if (!lanClient.isConnecting()) {
+                    connecting = false
+                    remoteConnecting = false
+                    remoteInfoLabel.setText("连接中继服务器失败!")
+                    window.requestRender()
+                    return
+                }
+            }
+            //Poll for PAIRED/REJECT/TIMEOUT response
+            if (relayHandshakeSent) {
+                let raw = lanClient.pollRaw()
+                for (line in raw) {
+                    if (line == "PAIRED") {
+                        relayHandshakeDone = true
+                        connecting = false
+                        remoteConnecting = false
+                        remoteInfoLabel.setText("配对成功! 开始游戏...")
+                        window.requestRender()
+                        //Guest sends READY immediately
+                        if (!isHost) {
+                            lanClient.sendString(MsgBuilder(READY).build())
+                        }
+                        return
+                    } else if (line.size > 7 && slice(line, 0, 7) == "REJECT:") {
+                        connecting = false
+                        remoteConnecting = false
+                        relayHandshakeSent = false
+                        remoteInfoLabel.setText("房间码已被占用，请重试")
+                        window.requestRender()
+                        return
+                    } else if (line.size > 8 && slice(line, 0, 8) == "TIMEOUT:") {
+                        connecting = false
+                        remoteConnecting = false
+                        relayHandshakeSent = false
+                        remoteInfoLabel.setText("配对超时，请重试")
+                        window.requestRender()
+                        return
+                    }
+                }
+            }
+            return
+        }
+
+        //Phase 2: Paired — poll for game messages (same as LAN client)
+        if (lanClient.isConnected()) {
+            let msgs = lanClient.poll()
+            if (!lanClient.isConnected()) {
+                engine.log("与对手的连接已断开")
+                refreshMessageLog()
+                window.requestRender()
+            }
+            if (msgs.size > 0) {
+                for (msg in msgs) {
+                    handleNetMsg(msg)
+                }
+                window.requestRender()
+            }
+        }
+    }
+
+    private func genRoomCode(): String {
+        let tick = ffi_getTickCount()
+        var n = if (tick < Int64(0)) { Int64(-1) * tick } else { tick }
+        var code = ""
+        for (_ in 0..6) {
+            let idx = Int32(n % Int64(36))
+            code = code + charAt(B62, idx)
+            n = n / Int64(36) + Int64(idx) * Int64(13)
+        }
+        code
+    }
+
     private func sendToNet(msg: NetMsg): Unit {
-        if (isHost) {
+        if (relayMode) {
+            lanClient.send(msg)
+        } else if (isHost) {
             lanServer.send(msg)
         } else {
             lanClient.send(msg)
@@ -665,7 +948,9 @@ public class CardGameUI {
     }
 
     private func sendToNetStr(wire: String): Unit {
-        if (isHost) {
+        if (relayMode) {
+            lanClient.sendString(wire)
+        } else if (isHost) {
             lanServer.sendString(wire)
         } else {
             lanClient.sendString(wire)
@@ -677,7 +962,8 @@ public class CardGameUI {
             case READY =>
                 if (isHost) {
                     lobbyInfoLabel.setText("对手已连接! 开始游戏中...")
-                    lanServer.sendString(MsgBuilder(GAME_START).build())
+                    remoteInfoLabel.setText("对手已连接! 开始游戏中...")
+                    sendToNetStr(MsgBuilder(GAME_START).build())
                 }
                 startNetGame()
             case GAME_START =>
@@ -786,6 +1072,7 @@ public class CardGameUI {
 
     private func startNetGame(): Unit {
         hideLobbyScreen()
+        hideRemoteScreen()
         if (isHost) {
             engine.selectMode(GameMode.VS_PLAYER)
             selectTitle.setText("选择你的角色")
@@ -1329,7 +1616,7 @@ public class CardGameUI {
                 if (engine.gameMode == GameMode.VS_AI && engine.phase == GamePhase.AI_TURN && engine.ai.hp > 0) {
                     engine.aiAttack()
                 }
-                // Animate new dice for defense phase
+                //Animate new dice for defense phase
                 if (engine.phase == GamePhase.PLAYER_DEFEND) {
                     startDiceAnimation(engine.activeDiceOwner().diceResults)
                 }
@@ -1354,8 +1641,13 @@ public class CardGameUI {
                 if (isHost && lanGameStarted) { sendStateSync(false) }
 
             case GamePhase.GAME_OVER =>
-                if (lanGameStarted) {
-                    if (isHost) {
+                if (lanGameStarted || relayMode) {
+                    if (relayMode) {
+                        lanClient.disconnect()
+                        relayMode = false
+                        relayHandshakeDone = false
+                        relayHandshakeSent = false
+                    } else if (isHost) {
                         lanServer.stop()
                     } else {
                         lanClient.disconnect()
@@ -1483,7 +1775,7 @@ public class CardGameUI {
         let startX = (WIN_W - totalW) / Float32(2) + diceSize / Float32(2)
 
         if (diceAnimating) {
-            // Show random cycling values during animation
+            //Show random cycling values during animation
             for (i in 0..diceButtons.size) {
                 let idx = Int32(i)
                 let btn = diceButtons[Int64(idx)]
@@ -1613,8 +1905,6 @@ public class CardGameUI {
         messageScroll.scrollBy(Float32(0), Float32(9999))
     }
 
-    // --- Chat ---
-
     private func showChatRow(): Unit {
         if (!lanGameStarted) { return }
         let chatY = Y_MSG + Float32(114)
@@ -1634,16 +1924,14 @@ public class CardGameUI {
         if (text.size == 0) { return }
         let who = if (isHost) { "房主" } else { "你" }
         engine.log("${who}: ${text}")
-        if (isHost) {
-            lanServer.sendString(MsgBuilder(CHAT).add("text", text).build())
-        } else if (lanClient.isConnected()) {
+        if (relayMode || !isHost) {
             lanClient.sendString(MsgBuilder(CHAT).add("text", text).build())
+        } else {
+            lanServer.sendString(MsgBuilder(CHAT).add("text", text).build())
         }
         chatInput.setText("")
         refreshMessageLog()
     }
-
-    // --- Animation ---
 
     private func updateAnimations(): Unit {
         let now = ffi_getTickCount()
@@ -1658,9 +1946,9 @@ public class CardGameUI {
                 var pos: Int64 = 0
                 for (_ in 0..diceAnimDisplay.size) {
                     let rv = engine.rng.nextInt(9)
-                    // Avoid modifying ArrayList in-place by re-building it
+                    //Avoid modifying ArrayList in-place by re-building it
                     if (pos < Int64(diceAnimDisplay.size)) {
-                        // Just cycle what we show via refreshDiceDisplay
+                        //Just cycle what we show via refreshDiceDisplay
                     }
                     pos = pos + 1
                 }
@@ -1672,7 +1960,7 @@ public class CardGameUI {
             }
         }
 
-        // HP bar smooth lerp
+        //HP bar smooth lerp
         if (!hpDisplayInit) {
             hpDisplayPlayer = Float32(engine.player.hp)
             hpDisplayAI = Float32(engine.topChar().hp)
@@ -1699,7 +1987,7 @@ public class CardGameUI {
             refreshActionButton()
             refreshHPBarsDirect()
         } else {
-            // Update HP bars every few frames to reduce overhead
+            //Update HP bars every few frames to reduce overhead
             refreshHPBarsDirect()
         }
     }
@@ -1726,6 +2014,14 @@ public class CardGameUI {
         let result = window.run()
         Int32(result)
     }
+}
+
+func readConfigStr(section: String, key: String, defaultVal: String): String {
+    ffi_configReadString(section, key, defaultVal)
+}
+
+func readConfigInt(section: String, key: String, defaultVal: Int32): Int32 {
+    ffi_configReadInt(section, key, defaultVal)
 }
 
 func absF32(v: Float32): Float32 {
