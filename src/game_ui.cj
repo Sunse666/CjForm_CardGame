@@ -83,6 +83,21 @@ public class CardGameUI {
     private var spFullStyle: ProgressBarStyle
     private var spNormStyle: ProgressBarStyle
 
+    //Chat
+    private var chatInput: TextBox
+    private var chatSendBtn: Button
+
+    //Animation
+    private var diceAnimating: Bool
+    private var diceAnimStart: Int64
+    private var diceAnimTarget: ArrayList<Int32>
+    private var diceAnimDisplay: ArrayList<Int32>
+    private var lastDiceCycle: Int64
+    private var hpDisplayPlayer: Float32
+    private var hpDisplayAI: Float32
+    private var animDirty: Bool
+    private var hpDisplayInit: Bool
+
     //Layout
     private let MG: Float32 = Float32(95)
     private let WIN_W: Float32 = Float32(800)
@@ -136,6 +151,16 @@ public class CardGameUI {
 
         spFullStyle = ProgressBarStyle(Color.rgb(60, 60, 60), Color.rgb(255, 180, 60), Float32(6), Float32(12))
         spNormStyle = ProgressBarStyle(Color.rgb(60, 60, 60), Color.rgb(100, 149, 237), Float32(6), Float32(12))
+
+        diceAnimating = false
+        diceAnimStart = Int64(0)
+        diceAnimTarget = ArrayList<Int32>()
+        diceAnimDisplay = ArrayList<Int32>()
+        lastDiceCycle = Int64(0)
+        hpDisplayPlayer = Float32(0)
+        hpDisplayAI = Float32(0)
+        animDirty = false
+        hpDisplayInit = false
 
         let c = Theme.colors()
         window = Window("Card Game — 卡牌对战", Int32(WIN_W), Int32(WIN_H))
@@ -409,9 +434,22 @@ public class CardGameUI {
             ButtonStyle.outlined(), { => () })
         window.addWidget(playerSkillBtn)
 
+        //Chat input (hidden by default)
+        chatInput = TextBox(Position.abs(OFF, OFF), Float32(420), Float32(30),
+            "Microsoft YaHei", Float32(13), SizeScale.fixed(),
+            TextBoxStyle.fromTheme(), "输入聊天消息...")
+        window.addWidget(chatInput)
+        chatInput.setParentHwnd(window.getHandle())
+
+        chatSendBtn = Button("发送",
+            Position.abs(OFF, OFF), Float32(56), Float32(30),
+            "Microsoft YaHei", Float32(12), SizeScale.fixed(), Anchor.Center,
+            ButtonStyle.outlined(), { => () })
+        window.addWidget(chatSendBtn)
+
         //WIRE
         wireCallbacks()
-        window.setIdleCallback({ => pollNetwork() })
+        window.setIdleCallback({ => onIdle() })
         showModeScreen()
     }
 
@@ -452,6 +490,7 @@ public class CardGameUI {
         }
         actionBtn.onClick() { onAction() }
         playerSkillBtn.onClick() { onSkillToggle() }
+        chatSendBtn.onClick() { onSendChat() }
     }
 
     //Mode Screen
@@ -476,6 +515,8 @@ public class CardGameUI {
             btn.setText("")
             btn.setPosition(Position.abs(OFF, OFF))
         }
+        diceAnimating = false
+        hpDisplayInit = false
         hideAllBattleWidgets()
     }
 
@@ -552,6 +593,11 @@ public class CardGameUI {
     }
 
     //Network poll - call each frame
+    public func onIdle(): Unit {
+        pollNetwork()
+        updateAnimations()
+    }
+
     public func pollNetwork(): Unit {
         if (isHost) {
             lanServer.acceptClient()
@@ -726,6 +772,14 @@ public class CardGameUI {
                         case _ => ()
                     }
                 }
+            case CHAT =>
+                let text = msg.get("text")
+                if (text.size > 0) {
+                    let sender = if (isHost) { "对手" } else { "房主" }
+                    engine.log("${sender}: ${text}")
+                    refreshMessageLog()
+                    window.requestRender()
+                }
             case _ => ()
         }
     }
@@ -854,6 +908,13 @@ public class CardGameUI {
             engine.activeDiceOwner().diceResults = diceVals
             engine.activeDiceOwner().physDice = physAssign
             engine.activeDiceOwner().magDice = magAssign
+            // Trigger dice animation if dice are newly rolled (not yet assigned)
+            var anyAssigned = false
+            for (v in physAssign) { if (v) { anyAssigned = true } }
+            for (v in magAssign) { if (v) { anyAssigned = true } }
+            if (!anyAssigned) {
+                startDiceAnimation(diceVals)
+            }
         }
         //Update log for client
         let logText = msg.get("log")
@@ -1003,7 +1064,9 @@ public class CardGameUI {
         actionBtn.setText("掷骰子")
 
         sep2.setLayoutFrame(LayoutFrame(MG, Y_SEP2, WIN_W - MG * Float32(2), Float32(2)))
-        messageScroll.setLayoutFrame(LayoutFrame(MG, Y_MSG, WIN_W - MG * Float32(2), Float32(152)))
+        messageScroll.setLayoutFrame(LayoutFrame(MG, Y_MSG, WIN_W - MG * Float32(2), Float32(110)))
+
+        showChatRow()
 
         sep3.setLayoutFrame(LayoutFrame(MG, Y_SEP3, WIN_W - MG * Float32(2), Float32(2)))
 
@@ -1037,6 +1100,7 @@ public class CardGameUI {
         actionBtn.setText("")
         sep2.setLayoutFrame(LayoutFrame(OFF, OFF, Float32(1), Float32(1)))
         messageScroll.setLayoutFrame(LayoutFrame(OFF, OFF, Float32(1), Float32(1)))
+        hideChatRow()
         sep3.setLayoutFrame(LayoutFrame(OFF, OFF, Float32(1), Float32(1)))
 
         playerNameLabel.setPosition(Position.abs(OFF, OFF))
@@ -1163,7 +1227,7 @@ public class CardGameUI {
     }
 
     private func onSkillToggle(): Unit {
-        if (!isMyTurn()) { return }
+        if (!isMyTurn() || diceAnimating) { return }
         if (lanGameStarted && !isHost) {
             if (engine.player.canUseSkill()) {
                 engine.addSkillStack()
@@ -1181,7 +1245,7 @@ public class CardGameUI {
     }
 
     private func onDiceClick(index: Int32): Unit {
-        if (!isMyTurn()) { return }
+        if (!isMyTurn() || diceAnimating) { return }
         let diceOwner = engine.activeDiceOwner()
         if (index >= Int32(diceOwner.diceResults.size)) { return }
         match (engine.phase) {
@@ -1198,7 +1262,7 @@ public class CardGameUI {
     }
 
     private func onAction(): Unit {
-        if (!isMyTurn()) { return }
+        if (!isMyTurn() || diceAnimating) { return }
         //Network client: send actions to host
         if (lanGameStarted && !isHost) {
             match (engine.phase) {
@@ -1250,6 +1314,7 @@ public class CardGameUI {
         match (engine.phase) {
             case GamePhase.PLAYER_ROLL =>
                 engine.playerRoll()
+                startDiceAnimation(engine.player.diceResults)
                 refreshUI()
                 if (isHost && lanGameStarted) { sendStateSync(false) }
 
@@ -1263,6 +1328,10 @@ public class CardGameUI {
                 engine.playerAttack()
                 if (engine.gameMode == GameMode.VS_AI && engine.phase == GamePhase.AI_TURN && engine.ai.hp > 0) {
                     engine.aiAttack()
+                }
+                // Animate new dice for defense phase
+                if (engine.phase == GamePhase.PLAYER_DEFEND) {
+                    startDiceAnimation(engine.activeDiceOwner().diceResults)
                 }
                 refreshUI()
                 if (isHost && lanGameStarted) { sendStateSync(false) }
@@ -1319,9 +1388,9 @@ public class CardGameUI {
     private func refreshHPBars(): Unit {
         let bottom = engine.activeDiceOwner()
         let top = engine.topChar()
-        aiHpBar.setValue(Float32(top.hp))
+        aiHpBar.setValue(hpDisplayAI)
         aiHpLabel.setText("${top.hp}/${top.effMaxHP()}")
-        playerHpBar.setValue(Float32(bottom.hp))
+        playerHpBar.setValue(hpDisplayPlayer)
         playerHpLabel.setText("${bottom.hp}/${bottom.effMaxHP()}")
     }
 
@@ -1406,17 +1475,37 @@ public class CardGameUI {
     }
 
     private func refreshDiceDisplay(): Unit {
-        let clickable = match (engine.phase) {
-            case GamePhase.PLAYER_ATTACK => true
-            case GamePhase.PLAYER_DEFEND => true
-            case _ => false
-        }
         let diceOwner = engine.activeDiceOwner()
         let totalDice = Int32(diceOwner.diceResults.size)
         let diceSize: Float32 = Float32(42)
         let diceSpacing: Float32 = Float32(6)
         let totalW = Float32(totalDice) * diceSize + Float32(totalDice - 1) * diceSpacing
         let startX = (WIN_W - totalW) / Float32(2) + diceSize / Float32(2)
+
+        if (diceAnimating) {
+            // Show random cycling values during animation
+            for (i in 0..diceButtons.size) {
+                let idx = Int32(i)
+                let btn = diceButtons[Int64(idx)]
+                if (idx < totalDice) {
+                    let dx = startX + Float32(idx) * (diceSize + diceSpacing)
+                    btn.setPosition(Position.abs(dx, Y_DICE))
+                    let rv = engine.rng.nextInt(9)
+                    btn.setText("${rv}")
+                    btn.setStyle(ButtonStyle.outlined())
+                } else {
+                    btn.setText("")
+                    btn.setPosition(Position.abs(OFF, OFF))
+                }
+            }
+            return
+        }
+
+        let clickable = match (engine.phase) {
+            case GamePhase.PLAYER_ATTACK => true
+            case GamePhase.PLAYER_DEFEND => true
+            case _ => false
+        }
 
         for (i in 0..diceButtons.size) {
             let idx = Int32(i)
@@ -1456,6 +1545,10 @@ public class CardGameUI {
     }
 
     private func refreshActionButton(): Unit {
+        if (diceAnimating) {
+            actionBtn.setText("...")
+            return
+        }
         if (lanGameStarted && !isMyTurn()) {
             actionBtn.setText("等待对手...")
             return
@@ -1520,11 +1613,123 @@ public class CardGameUI {
         messageScroll.scrollBy(Float32(0), Float32(9999))
     }
 
+    // --- Chat ---
+
+    private func showChatRow(): Unit {
+        if (!lanGameStarted) { return }
+        let chatY = Y_MSG + Float32(114)
+        chatInput.setLayoutFrame(LayoutFrame(MG, chatY, WIN_W - MG * Float32(2) - Float32(66), Float32(28)))
+        chatSendBtn.setLayoutFrame(LayoutFrame(MG + WIN_W - MG * Float32(2) - Float32(60), chatY, Float32(56), Float32(28)))
+    }
+
+    private func hideChatRow(): Unit {
+        chatInput.clearLayoutFrame()
+        chatInput.setPosition(Position.abs(OFF, OFF))
+        chatSendBtn.clearLayoutFrame()
+        chatSendBtn.setPosition(Position.abs(OFF, OFF))
+    }
+
+    private func onSendChat(): Unit {
+        let text = chatInput.getText()
+        if (text.size == 0) { return }
+        let who = if (isHost) { "房主" } else { "你" }
+        engine.log("${who}: ${text}")
+        if (isHost) {
+            lanServer.sendString(MsgBuilder(CHAT).add("text", text).build())
+        } else if (lanClient.isConnected()) {
+            lanClient.sendString(MsgBuilder(CHAT).add("text", text).build())
+        }
+        chatInput.setText("")
+        refreshMessageLog()
+    }
+
+    // --- Animation ---
+
+    private func updateAnimations(): Unit {
+        let now = ffi_getTickCount()
+
+        if (diceAnimating) {
+            let elapsed = now - diceAnimStart
+            if (elapsed >= Int64(700)) {
+                diceAnimating = false
+                animDirty = true
+            } else if (now - lastDiceCycle >= Int64(60)) {
+                lastDiceCycle = now
+                var pos: Int64 = 0
+                for (_ in 0..diceAnimDisplay.size) {
+                    let rv = engine.rng.nextInt(9)
+                    // Avoid modifying ArrayList in-place by re-building it
+                    if (pos < Int64(diceAnimDisplay.size)) {
+                        // Just cycle what we show via refreshDiceDisplay
+                    }
+                    pos = pos + 1
+                }
+                animDirty = true
+            }
+            if (animDirty) {
+                refreshDiceDisplay()
+                window.requestRender()
+            }
+        }
+
+        // HP bar smooth lerp
+        if (!hpDisplayInit) {
+            hpDisplayPlayer = Float32(engine.player.hp)
+            hpDisplayAI = Float32(engine.topChar().hp)
+            hpDisplayInit = true
+        }
+        let targetPl = Float32(engine.player.hp)
+        let targetAi = Float32(engine.topChar().hp)
+        let lerpSpeed = Float32(0.18)
+        let newPl = hpDisplayPlayer + (targetPl - hpDisplayPlayer) * lerpSpeed
+        let newAi = hpDisplayAI + (targetAi - hpDisplayAI) * lerpSpeed
+        if (absF32(newPl - targetPl) < Float32(0.5)) {
+            hpDisplayPlayer = targetPl
+        } else {
+            hpDisplayPlayer = newPl
+        }
+        if (absF32(newAi - targetAi) < Float32(0.5)) {
+            hpDisplayAI = targetAi
+        } else {
+            hpDisplayAI = newAi
+        }
+
+        if (animDirty) {
+            animDirty = false
+            refreshActionButton()
+            refreshHPBarsDirect()
+        } else {
+            // Update HP bars every few frames to reduce overhead
+            refreshHPBarsDirect()
+        }
+    }
+
+    private func startDiceAnimation(target: ArrayList<Int32>): Unit {
+        diceAnimTarget = target
+        diceAnimDisplay = ArrayList<Int32>()
+        for (v in target) {
+            diceAnimDisplay.add(v)
+        }
+        diceAnimating = true
+        diceAnimStart = ffi_getTickCount()
+        lastDiceCycle = diceAnimStart
+        animDirty = true
+    }
+
+    private func refreshHPBarsDirect(): Unit {
+        aiHpBar.setValue(hpDisplayAI)
+        playerHpBar.setValue(hpDisplayPlayer)
+    }
+
     public func run(): Int32 {
         window.show()
         let result = window.run()
         Int32(result)
     }
+}
+
+func absF32(v: Float32): Float32 {
+    if (v < Float32(0)) { Float32(-1) * v } else { v }
 }
 
 func getClassDetail(cd: CharData): String {
